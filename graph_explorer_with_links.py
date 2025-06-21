@@ -178,11 +178,11 @@ if selected_id:
     visited = compute_visited_nodes(selected_id, depth)
 
     # Compute and display risk score
-    score_result = score_entity(selected_id, visited, G)
-    st.markdown(f"### 🧮 Risk Score: **{score_result['risk_score']}**")
-    if score_result['abuse_tags']:
-        st.write("🚩 Abuse Tags:", ", ".join(score_result['abuse_tags']))
-    st.caption(f"ℹ️ Reason: {score_result['reason']}")
+    #score_result = score_entity(selected_id, visited, G)
+    #st.markdown(f"### 🧮 Risk Score: **{score_result['risk_score']}**")
+    #if score_result['abuse_tags']:
+    #    st.write("🚩 Abuse Tags:", ", ".join(score_result['abuse_tags']))
+    #st.caption(f"ℹ️ Reason: {score_result['reason']}")
 
     # Create summary per depth and type    
     depth_summary = defaultdict(lambda: defaultdict(int))
@@ -231,58 +231,70 @@ if selected_id:
     # Draw main subgraph
     draw_subgraph(selected_id, depth, show_labels)
 
-    # Multiple Graph Visualizations by Depth
-    st.markdown('### 🌐 Visualizations by Depth')
-    for d in range(1, depth + 1):
-        subgraph_nodes = [n for n, meta in visited.items() if meta['depth'] <= d]
-        H = G.subgraph(subgraph_nodes).copy()
+    # Unique node types found in the graph
+    all_node_types = sorted(set(nx.get_node_attributes(G, 'type').values())) 
+    # Sidebar: Node type filters
+    st.sidebar.markdown("### Filter by Node Types")
+    selected_types = st.sidebar.multiselect(
+        "Only show nodes of these types:",
+        options=all_node_types,
+        default=all_node_types
+    )
+# 🌐 Visualizations by Depth with Filters
+st.markdown('### 🌐 Visualizations by Depth')
+for d in range(1, depth + 1):
+    # Filter nodes by depth and selected types
+    subgraph_nodes = [
+        n for n, meta in visited.items()
+        if meta['depth'] <= d and G.nodes[n].get('type') in selected_types
+    ]
+    H = G.subgraph(subgraph_nodes).copy()
 
-        if len(H.nodes()) > 0:  # Only create visualization if there are nodes
-            fig, ax = plt.subplots(figsize=(10, 8))
-            pos = nx.spring_layout(H, k=0.5, iterations=30)
-            
-            # Color nodes by type
-            node_colors = [color_map.get(H.nodes[n].get('type', 'Unknown'), 'white') for n in H.nodes()]
-            
-            nx.draw_networkx_nodes(H, pos, node_color=node_colors, node_size=500, alpha=0.8, ax=ax)
-            nx.draw_networkx_edges(H, pos, arrows=True, arrowstyle='->', arrowsize=15, ax=ax)
+    if len(H.nodes()) > 0:
+        fig, ax = plt.subplots(figsize=(10, 8))
+        pos = nx.spring_layout(H, k=0.5, iterations=30)
+
+        # Color nodes by type
+        node_colors = [color_map.get(H.nodes[n].get('type', 'Unknown'), 'white') for n in H.nodes()]
+
+        nx.draw_networkx_nodes(H, pos, node_color=node_colors, node_size=500, alpha=0.8, ax=ax)
+        nx.draw_networkx_edges(H, pos, arrows=True, arrowstyle='->', arrowsize=15, ax=ax)
+
+        if show_labels:
             nx.draw_networkx_labels(H, pos, font_size=7, ax=ax)
-            
-            # Add edge labels if they exist
-            edge_labels = {}
-            for edge in H.edges():
-                relation = H.edges[edge].get('relation', '')
-                if relation:
-                    edge_labels[edge] = relation
-            
-            if edge_labels:
-                nx.draw_networkx_edge_labels(H, pos, edge_labels=edge_labels, font_size=6, ax=ax)
 
-            ax.set_title(f'Depth {d} - {len(H.nodes())} nodes, {len(H.edges())} edges')
-            ax.axis('off')
-            
-            st.subheader(f'Depth {d}')
-            st.pyplot(fig)
-            plt.close(fig)
+        # Optional edge labels
+        edge_labels = {
+            edge: H.edges[edge].get('relation', '')
+            for edge in H.edges()
+            if H.edges[edge].get('relation')
+        }
+        if edge_labels:
+            nx.draw_networkx_edge_labels(H, pos, edge_labels=edge_labels, font_size=6, ax=ax)
 
-            # Create legend
-            legend_text = '🎨 **Node Colors:** '
-            used_types = set(H.nodes[n].get('type', 'Unknown') for n in H.nodes())
-            legend_items = []
-            for node_type in used_types:
-                color = color_map.get(node_type, 'white')
-                legend_items.append(f'{color.title()} = {node_type}')
-            st.caption(legend_text + ' | '.join(legend_items))
+        ax.set_title(f'Depth {d} - {len(H.nodes())} nodes, {len(H.edges())} edges')
+        ax.axis('off')
 
-            # PNG export
-            buf = BytesIO()
-            fig.savefig(buf, format='png', dpi=300, bbox_inches='tight')
-            buf.seek(0)
-            st.download_button(
-                label=f'📥 Export Depth {d} Graph as PNG',
-                data=buf.getvalue(),
-                file_name=f'graph_depth_{d}_{selected_id}.png',
-                mime='image/png'
-            )
-        else:
-            st.write(f'No nodes found at depth {d}')
+        st.subheader(f'Depth {d}')
+        st.pyplot(fig)
+        plt.close(fig)
+
+        # Legend
+        used_types = set(H.nodes[n].get('type', 'Unknown') for n in H.nodes())
+        legend_items = [
+            f"{color_map.get(t, 'white').title()} = {t}" for t in used_types
+        ]
+        st.caption("🎨 **Node Colors:** " + " | ".join(legend_items))
+
+        # Export PNG
+        buf = BytesIO()
+        fig.savefig(buf, format='png', dpi=300, bbox_inches='tight')
+        buf.seek(0)
+        st.download_button(
+            label=f'📥 Export Depth {d} Graph as PNG',
+            data=buf.getvalue(),
+            file_name=f'graph_depth_{d}_{selected_id}.png',
+            mime='image/png'
+        )
+    else:
+        st.write(f'No nodes found at depth {d}')
