@@ -148,6 +148,66 @@ if selected_id:
 
 
 
+ set([center_id])
+    current_layer = [center_id]
+    for _ in range(depth):
+        next_layer = []
+        for node in current_layer:
+            neighbors = list(G.successors(node)) + list(G.predecessors(node))
+            for n in neighbors:
+                if n not in visited:
+                    next_layer.append(n)
+        visited.update(next_layer)
+        current_layer = next_layer
+    return visited# Graph coloring
+color_map = {
+    'Brand': 'skyblue',
+    'ProductSet': 'lightgreen',
+    'ChildProduct': 'pink',
+    'Seller': 'orange',
+    'Offer': 'lightgrey',
+    'Customer': 'yellow',
+    'Order': 'violet',
+    'OrderItem': 'cyan',
+    'Review': 'coral'
+}
+
+def draw_subgraph(center_id, depth):
+    sub_nodes = fan_out_graph(center_id, depth)
+    subgraph = G.subgraph(sub_nodes).copy()
+
+    node_colors = [
+        color_map.get(subgraph.nodes[n].get('type', 'Offer'), 'white') for n in subgraph.nodes
+    ]
+
+    plt.figure(figsize=(12, 12))
+    pos = nx.spring_layout(subgraph, k=0.5, iterations=30)
+    nx.draw_networkx_nodes(subgraph, pos, node_size=300, node_color=node_colors, alpha=0.8)
+    nx.draw_networkx_edges(subgraph, pos, arrows=True, arrowstyle='->', arrowsize=10)
+    nx.draw_networkx_labels(subgraph, pos, font_size=7)
+    plt.title(f"Graph for {center_id} (Depth {depth})")
+    plt.axis('off')
+    plt.tight_layout()
+    st.pyplot(plt.gcf())
+    plt.clf()
+
+# Run and display
+if selected_id:
+    st.subheader("🔗 Connected Entities")
+    connected_nodes = fan_out_graph(selected_id, depth)
+    st.markdown(f"{len(connected_nodes)} nodes connected to `{selected_id}` within {depth} hops.")
+
+    # Show each connected node as a clickable hyperlink
+    for node in sorted(connected_nodes):
+        node_type = G.nodes[node].get("type", "Unknown")
+        params = urlencode({"entity_id": node, "type": node_type, "depth": depth})
+        link = f"<a href='?{params}' target='_blank'>{node} ({node_type})</a>"
+        st.markdown(link, unsafe_allow_html=True)
+
+    draw_subgraph(selected_id, depth)
+
+
+
 # --- Multiple Graph Visualizations by Depth ---
 st.markdown("### 🌐 Visualizations by Depth")
 for d in range(1, depth + 1):
@@ -162,6 +222,37 @@ for d in range(1, depth + 1):
 
     st.subheader(f"Depth {d}")
     st.pyplot(fig)
+
+    st.caption("🟦 Legend: Blue = All nodes (custom coloring can be added later)")
+
+
+    # PNG export
+    buf = BytesIO()
+    fig.savefig(buf, format="png")
+    st.download_button(
+        label=f"📥 Export Depth {d} Graph as PNG",
+        data=buf.getvalue(),
+        file_name=f"graph_depth_{d}.png",
+        mime="image/png"
+    )
+
+# --- Multiple Graph Visualizations by Depth ---
+st.markdown("### 🌐 Visualizations by Depth")
+for d in range(1, depth + 1):
+    subgraph_nodes = [n for n, meta in visited.items() if meta["depth"] <= d and node_types.get(n, "Unknown") in selected_types]
+    H = G.subgraph(subgraph_nodes).copy()
+
+    fig, ax = plt.subplots()
+    pos = nx.spring_layout(H)
+    nx.draw(H, pos, with_labels=True, node_color="skyblue", node_size=1600, font_size=10, ax=ax)
+    edge_labels = nx.get_edge_attributes(H, 'label') if nx.get_edge_attributes(H, 'label') else {}
+    nx.draw_networkx_edge_labels(H, pos, edge_labels=edge_labels, font_size=8)
+
+    st.subheader(f"Depth {d}")
+    st.pyplot(fig)
+
+    st.caption("🟦 Legend: Blue = All nodes (custom coloring can be added later)")
+
 
     # PNG export
     buf = BytesIO()
