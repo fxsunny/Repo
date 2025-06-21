@@ -88,7 +88,8 @@ entity_types = {
 if not selected_id or not selected_type:
     selected_type = st.selectbox('Select Entity Type', list(entity_types.keys()))
     selected_id = st.selectbox(f'Select {selected_type} ID', entity_types[selected_type])
-    depth = st.sidebar.selectbox("Connection Depth", [1, 2, 3, 4, 5], index=2)
+    depth = st.sidebar.selectbox("Connection Depth", [1, 2, 3, 4, 5], index=3)
+    show_labels = st.sidebar.checkbox("Display Labels", value=True)
     # depth = st.slider('Connection Depth', 1, 4, 2)
 
 # Expand from selected entity using breadth-first search
@@ -119,7 +120,7 @@ color_map = {
     'Review': 'coral'
 }
 
-def draw_subgraph(center_id, depth):
+def draw_subgraph(center_id, depth, show_labels=True):
     sub_nodes = fan_out_graph(center_id, depth)
     subgraph = G.subgraph(sub_nodes).copy()
 
@@ -131,7 +132,8 @@ def draw_subgraph(center_id, depth):
     pos = nx.spring_layout(subgraph, k=0.5, iterations=30)
     nx.draw_networkx_nodes(subgraph, pos, node_size=300, node_color=node_colors, alpha=0.8)
     nx.draw_networkx_edges(subgraph, pos, arrows=True, arrowstyle='->', arrowsize=10)
-    nx.draw_networkx_labels(subgraph, pos, font_size=7)
+    if show_labels:
+        nx.draw_networkx_labels(subgraph, pos, font_size=7)
     plt.title(f'Graph for {center_id} (Depth {depth})')
     plt.axis('off')
     plt.tight_layout()
@@ -165,7 +167,7 @@ def compute_visited_nodes(center_id, depth):
 if selected_id:
     st.subheader('Connected Entities')
     connected_nodes = fan_out_graph(selected_id, depth)
-    st.markdown(f'{len(connected_nodes)} nodes connected to `{selected_id}` within {depth} hops.')
+    # st.markdown(f'{len(connected_nodes)} nodes connected to `{selected_id}` within {depth} hops.')
     
     # Compute visited nodes for depth visualizations
     visited = compute_visited_nodes(selected_id, depth)
@@ -215,7 +217,8 @@ if selected_id:
         st.warning("No connected entities found.")
     
     # Draw main subgraph
-    draw_subgraph(selected_id, depth)
+    draw_subgraph(selected_id, depth, show_labels)
+
     
     # Multiple Graph Visualizations by Depth
     st.markdown('### 🌐 Visualizations by Depth')
