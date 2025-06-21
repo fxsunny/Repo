@@ -240,7 +240,8 @@ if selected_id:
             
             nx.draw_networkx_nodes(H, pos, node_color=node_colors, node_size=500, alpha=0.8, ax=ax)
             nx.draw_networkx_edges(H, pos, arrows=True, arrowstyle='->', arrowsize=15, ax=ax)
-            nx.draw_networkx_labels(H, pos, font_size=8, ax=ax)
+            if show_labels:
+                nx.draw_networkx_labels(H, pos, font_size=7, ax=ax)
             
             # Add edge labels if they exist
             edge_labels = {}
