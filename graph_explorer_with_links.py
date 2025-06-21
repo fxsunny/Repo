@@ -175,15 +175,39 @@ if selected_id:
         link = f'<a href=\'?{params_str}\' target=\'_blank\'>{node} ({node_type})</a>'
         st.markdown(link, unsafe_allow_html=True)
 
+
+    
     # Draw main subgraph
     draw_subgraph(selected_id, depth)
 
     # Compute visited nodes for depth visualizations
     visited = compute_visited_nodes(selected_id, depth)
+
+    # Prepare detailed connected entity table
+    if visited:
+        rows = []
+        for node, meta in visited.items():
+            if node == selected_id:
+                continue
+            node_type = G.nodes[node].get('type', 'Unknown')
+            d = meta.get('depth', '?')
+            reason = meta.get('reason', '')
+            params_dict = {'entity_id': node, 'type': node_type, 'depth': depth}
+            params_str = urlencode(params_dict)
+            hyperlink = f'<a href="?{params_str}" target="_blank">{node}</a>'
+            rows.append({'Entity ID': hyperlink, 'Type': node_type, 'Depth': d, 'Connection Description': reason})
     
-    # Create summary per depth and type
-    from collections import defaultdict
+        df_display = pd.DataFrame(rows)
+        st.markdown('### 🔗 Connected Entities')
+        st.write(f"Total connected entities: {len(df_display)}")
+        st.write("Click any ID to explore it in a new tab.")
+        st.write(df_display.to_html(escape=False, index=False), unsafe_allow_html=True)
+    else:
+        st.warning("No connected entities found.")
+
+
     
+    # Create summary per depth and type    
     depth_summary = defaultdict(lambda: defaultdict(int))
     for node, meta in visited.items():
         if node == selected_id:
