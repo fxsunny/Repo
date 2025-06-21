@@ -88,7 +88,7 @@ entity_types = {
 if not selected_id or not selected_type:
     selected_type = st.selectbox('Select Entity Type', list(entity_types.keys()))
     selected_id = st.selectbox(f'Select {selected_type} ID', entity_types[selected_type])
-    depth = st.sidebar.selectbox("Connection Depth", [1, 2, 3, 4, 5], index=3)
+    depth = st.sidebar.selectbox("Connection Depth", [1, 2, 3, 4, 5], index=4)
     show_labels = st.sidebar.checkbox("Display Labels", value=True)
     # depth = st.slider('Connection Depth', 1, 4, 2)
 
@@ -133,7 +133,7 @@ def draw_subgraph(center_id, depth, show_labels=True):
     nx.draw_networkx_nodes(subgraph, pos, node_size=300, node_color=node_colors, alpha=0.8)
     nx.draw_networkx_edges(subgraph, pos, arrows=True, arrowstyle='->', arrowsize=10)
     if show_labels:
-        nx.draw_networkx_labels(subgraph, pos, font_size=7)
+        nx.draw_networkx_labels(subgraph, pos, font_size=7, show_labels)
     plt.title(f'Graph for {center_id} (Depth {depth})')
     plt.axis('off')
     plt.tight_layout()
