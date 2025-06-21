@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from urllib.parse import urlencode
 from io import BytesIO
 
-st.set_page_config(layout=“wide”)
+st.set_page_config(layout='wide')
 st.title(“RIA – Risk Intelligence Analyst”)
 
 # Load Excel data
