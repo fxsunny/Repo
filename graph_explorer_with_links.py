@@ -66,10 +66,17 @@ def build_graph():
 build_graph()
 
 # Parse query parameters
-params = st.query_params  # Updated for newer Streamlit versions
+params = st.query_params
 selected_id = params.get('entity_id', None)
 selected_type = params.get('type', None)
-depth = int(params.get('depth', 2))
+param_depth = params.get('depth')
+
+# Determine initial default depth from query param or fallback
+default_depth = int(param_depth) if param_depth else 4
+
+# Sidebar settings
+depth = st.sidebar.selectbox("Connection Depth", [1, 2, 3, 4, 5], index=default_depth - 1)
+show_labels = st.sidebar.checkbox("Display Labels", value=True)
 
 # Entity types for dropdown
 entity_types = {
@@ -84,13 +91,11 @@ entity_types = {
     'OrderItem': order_items['OrderItemID'].tolist()
 }
 
-# If no selection, allow dropdown input
+
+# Fallback to manual dropdown if no query param
 if not selected_id or not selected_type:
     selected_type = st.selectbox('Select Entity Type', list(entity_types.keys()))
     selected_id = st.selectbox(f'Select {selected_type} ID', entity_types[selected_type])
-    depth = st.sidebar.selectbox("Connection Depth", [1, 2, 3, 4, 5], index=4)
-    show_labels = st.sidebar.checkbox("Display Labels", value=True)
-    # depth = st.slider('Connection Depth', 1, 4, 2)
 
 # Expand from selected entity using breadth-first search
 def fan_out_graph(center_id, depth=1):
@@ -133,7 +138,7 @@ def draw_subgraph(center_id, depth, show_labels=True):
     nx.draw_networkx_nodes(subgraph, pos, node_size=300, node_color=node_colors, alpha=0.8)
     nx.draw_networkx_edges(subgraph, pos, arrows=True, arrowstyle='->', arrowsize=10)
     if show_labels:
-        nx.draw_networkx_labels(subgraph, pos, font_size=7, show_labels)
+        nx.draw_networkx_labels(subgraph, pos, font_size=7)
     plt.title(f'Graph for {center_id} (Depth {depth})')
     plt.axis('off')
     plt.tight_layout()
