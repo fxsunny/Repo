@@ -3,141 +3,167 @@ import streamlit as st
 import pandas as pd
 import networkx as nx
 import matplotlib.pyplot as plt
-from io import BytesIO
 from urllib.parse import urlencode
-from collections import defaultdict
 
-# ---------------- Setup ----------------
 st.set_page_config(layout="wide")
-st.title("🕵️‍♀️ RIA – Risk Intelligence Analyst")
+st.title("RIA – Risk Intelligence Analyst")
+# "🧠 E-commerce Knowledge Graph Explorer")
 
-# ---------------- Load or Create Graph ----------------
-@st.cache_data
-def load_graph():
-    G = nx.DiGraph()
-    edges = [
-        ("R001", "CP010", "reviews_product"),
-        ("C003", "R001", "writes_review"),
-        ("PS100", "CP010", "has_variant"),
-        ("S002", "O500", "makes_offer"),
-        ("O500", "CP010", "offers_product"),
-        ("C003", "ORD01", "places_order")
-    ]
-    for src, tgt, rel in edges:
-        G.add_edge(src, tgt, label=rel)
-    return G
+# Load Excel data
+df = pd.read_excel("Ecommerce_Graph_Data.xlsx", sheet_name=None)
+brands = df['Brands']
+product_sets = df['ProductSets']
+child_products = df['ChildProducts']
+sellers = df['Sellers']
+offers = df['Offers']
+customers = df['Customers']
+orders = df['Orders']
+order_items = df['OrderItems']
+reviews = df['Reviews']
 
-G = load_graph()
+# Build graph
+G = nx.DiGraph()
 
-# ---------------- Node Metadata ----------------
-node_types = {
-    "R001": "Review",
-    "CP010": "ChildProduct",
-    "C003": "Customer",
-    "PS100": "ProductSet",
-    "S002": "Seller",
-    "O500": "Offer",
-    "ORD01": "Order"
+def build_graph():
+    for _, row in brands.iterrows():
+        G.add_node(row["BrandID"], type='Brand')
+    for _, row in product_sets.iterrows():
+        G.add_node(row["ProductSetID"], type='ProductSet')
+    for _, row in child_products.iterrows():
+        G.add_node(row["ChildProductID"], type='ChildProduct')
+    for _, row in sellers.iterrows():
+        G.add_node(row["SellerID"], type='Seller')
+    for _, row in offers.iterrows():
+        G.add_node(row["OfferID"], type='Offer')
+    for _, row in customers.iterrows():
+        G.add_node(row["CustomerID"], type='Customer')
+    for _, row in orders.iterrows():
+        G.add_node(row["OrderID"], type='Order')
+    for _, row in order_items.iterrows():
+        G.add_node(row["OrderItemID"], type='OrderItem')
+    for _, row in reviews.iterrows():
+        G.add_node(row["ReviewID"], type='Review')
+
+    for _, row in product_sets.iterrows():
+        G.add_edge(row["BrandID"], row["ProductSetID"], relation="owns")
+    for _, row in child_products.iterrows():
+        G.add_edge(row["ProductSetID"], row["ChildProductID"], relation="has_variant")
+    for _, row in offers.iterrows():
+        G.add_edge(row["SellerID"], row["OfferID"], relation="makes_offer")
+        G.add_edge(row["OfferID"], row["ChildProductID"], relation="offers_product")
+    for _, row in orders.iterrows():
+        G.add_edge(row["CustomerID"], row["OrderID"], relation="places_order")
+    for _, row in order_items.iterrows():
+        G.add_edge(row["OrderID"], row["OrderItemID"], relation="contains_item")
+        G.add_edge(row["OrderItemID"], row["OfferID"], relation="item_offer")
+    for _, row in reviews.iterrows():
+        G.add_edge(row["CustomerID"], row["ReviewID"], relation="writes_review")
+        G.add_edge(row["ReviewID"], row["ChildProductID"], relation="reviews_product")
+
+build_graph()
+
+# Parse query parameters
+params = st.experimental_get_query_params()
+selected_id = params.get("entity_id", [None])[0]
+selected_type = params.get("type", [None])[0]
+depth = int(params.get("depth", [2])[0])
+
+# If no selection, allow dropdown input
+entity_types = {
+    "Review": reviews["ReviewID"].tolist(),
+    "Customer": customers["CustomerID"].tolist(),
+    "Seller": sellers["SellerID"].tolist(),
+    "ProductSet": product_sets["ProductSetID"].tolist(),
+    "ChildProduct": child_products["ChildProductID"].tolist(),
+    "Offer": offers["OfferID"].tolist(),
+    "Order": orders["OrderID"].tolist()
 }
 
-# ---------------- UI Controls: Type → ID ----------------
-available_types = sorted(set(node_types.values()))
-selected_type = st.selectbox("🔍 Select an entity type to investigate:", available_types)
+if not selected_id or not selected_type:
+    selected_type = st.selectbox("Select Entity Type", list(entity_types.keys()))
+    selected_id = st.selectbox(f"Select {selected_type} ID", entity_types[selected_type])
+    depth = st.slider("Connection Depth", 1, 4, 2)
 
-filtered_ids = [nid for nid, typ in node_types.items() if typ == selected_type]
-selected_id = st.selectbox(f"🔎 Select a {selected_type} ID:", filtered_ids)
-
-depth = st.selectbox("📏 Select depth to explore:", [1, 2, 3, 4, 5], index=1)
-
-selected_types = st.multiselect(
-    "🧩 Filter by entity type in visualization:",
-    options=available_types,
-    default=available_types
-)
-
-# ---------------- Fan-Out Utility ----------------
-def fan_out_with_depth(G, start, max_depth):
-    visited = {start: {"depth": 0, "reason": "Origin"}}
-    frontier = [start]
-    for depth in range(1, max_depth + 1):
-        next_frontier = []
-        for node in frontier:
-            for neighbor in G.successors(node):
-                if neighbor not in visited:
-                    reason = f"{node} → {neighbor} via '{G.edges[node, neighbor]['label']}'"
-                    visited[neighbor] = {"depth": depth, "reason": reason}
-                    next_frontier.append(neighbor)
-            for predecessor in G.predecessors(node):
-                if predecessor not in visited:
-                    reason = f"{predecessor} → {node} via '{G.edges[predecessor, node]['label']}'"
-                    visited[predecessor] = {"depth": depth, "reason": reason}
-                    next_frontier.append(predecessor)
-        frontier = next_frontier
+# Expand from selected entity
+def fan_out_graph(center_id, depth=1):
+    visited = set([center_id])
+    current_layer = [center_id]
+    for _ in range(depth):
+        next_layer = []
+        for node in current_layer:
+            neighbors = list(G.successors(node)) + list(G.predecessors(node))
+            for n in neighbors:
+                if n not in visited:
+                    next_layer.append(n)
+        visited.update(next_layer)
+        current_layer = next_layer
     return visited
 
-visited = fan_out_with_depth(G, selected_id, depth)
+# Graph coloring
+color_map = {
+    'Brand': 'skyblue',
+    'ProductSet': 'lightgreen',
+    'ChildProduct': 'pink',
+    'Seller': 'orange',
+    'Offer': 'lightgrey',
+    'Customer': 'yellow',
+    'Order': 'violet',
+    'OrderItem': 'cyan',
+    'Review': 'coral'
+}
 
-# ---------------- Summary ----------------
-depth_summary = defaultdict(lambda: defaultdict(int))
-for node_id, meta in visited.items():
-    if meta["depth"] == 0:
-        continue
-    t = node_types.get(node_id, "Unknown")
-    depth_summary[meta["depth"]][t] += 1
+def draw_subgraph(center_id, depth):
+    sub_nodes = fan_out_graph(center_id, depth)
+    subgraph = G.subgraph(sub_nodes).copy()
 
-summary_lines = []
-for d in sorted(depth_summary):
-    total = sum(depth_summary[d].values())
-    parts = [f"{v} {k.lower() + ('s' if v > 1 else '')}" for k, v in depth_summary[d].items()]
-    line = f"🔎 Analyzing {total} connections at depth {d} ({', '.join(parts)})"
-    summary_lines.append(line)
+    node_colors = [
+        color_map.get(subgraph.nodes[n].get('type', 'Offer'), 'white') for n in subgraph.nodes
+    ]
 
-st.markdown("### 🧠 Summary")
-for line in summary_lines:
-    st.markdown(line)
+    plt.figure(figsize=(12, 12))
+    pos = nx.spring_layout(subgraph, k=0.5, iterations=30)
+    nx.draw_networkx_nodes(subgraph, pos, node_size=300, node_color=node_colors, alpha=0.8)
+    nx.draw_networkx_edges(subgraph, pos, arrows=True, arrowstyle='->', arrowsize=10)
+    nx.draw_networkx_labels(subgraph, pos, font_size=7)
+    plt.title(f"Graph for {center_id} (Depth {depth})")
+    plt.axis('off')
+    plt.tight_layout()
+    st.pyplot(plt.gcf())
+    plt.clf()
 
-# ---------------- Table ----------------
-data = []
-for node_id, meta in visited.items():
-    t = node_types.get(node_id, "Unknown")
-    if t in selected_types or node_id == selected_id:
-        url = f"?entity={urlencode({'id': node_id})}"
-        data.append({
-            "Entity ID": f"[{node_id}]({url})",
-            "Type": t,
-            "Depth": meta["depth"],
-            "Reason": meta["reason"]
-        })
+# Run and display
+if selected_id:
+    st.subheader("🔗 Connected Entities")
+    connected_nodes = fan_out_graph(selected_id, depth)
+    st.markdown(f"{len(connected_nodes)} nodes connected to `{selected_id}` within {depth} hops.")
 
-df = pd.DataFrame(data).sort_values(by=["Depth", "Type"])
-st.markdown("### 📋 Connections Table")
-st.write(df.to_html(escape=False), unsafe_allow_html=True)
+    # Show each connected node as a clickable hyperlink
+    for node in sorted(connected_nodes):
+        node_type = G.nodes[node].get("type", "Unknown")
+        params = urlencode({"entity_id": node, "type": node_type, "depth": depth})
+        link = f"<a href='?{params}' target='_blank'>{node} ({node_type})</a>"
+        st.markdown(link, unsafe_allow_html=True)
 
-# ---------------- Graphs by Depth ----------------
-def draw_graph_at_depth(d):
-    H = nx.DiGraph()
-    for node_id, meta in visited.items():
-        if meta["depth"] <= d:
-            t = node_types.get(node_id, "Unknown")
-            if t in selected_types or node_id == selected_id:
-                H.add_node(node_id, type=t)
-    for u, v in G.edges:
-        if u in H.nodes and v in H.nodes:
-            H.add_edge(u, v, label=G.edges[u, v]["label"])
+    draw_subgraph(selected_id, depth)
+
+
+
+# --- Multiple Graph Visualizations by Depth ---
+st.markdown("### 🌐 Visualizations by Depth")
+for d in range(1, depth + 1):
+    subgraph_nodes = [n for n, meta in visited.items() if meta["depth"] <= d]
+    H = G.subgraph(subgraph_nodes).copy()
 
     fig, ax = plt.subplots()
     pos = nx.spring_layout(H)
-    labels = {n: n for n in H.nodes}
-    nx.draw(H, pos, labels=labels, with_labels=True, node_size=1600, node_color="skyblue", font_size=10, ax=ax)
-    edge_labels = nx.get_edge_attributes(H, 'label')
+    nx.draw(H, pos, with_labels=True, node_color="skyblue", node_size=1600, font_size=10, ax=ax)
+    edge_labels = nx.get_edge_attributes(H, 'label') if nx.get_edge_attributes(H, 'label') else {}
     nx.draw_networkx_edge_labels(H, pos, edge_labels=edge_labels, font_size=8)
-    return fig
 
-st.markdown("### 🌐 Visualizations by Depth")
-for d in range(1, depth + 1):
     st.subheader(f"Depth {d}")
-    fig = draw_graph_at_depth(d)
     st.pyplot(fig)
+
+    # PNG export
     buf = BytesIO()
     fig.savefig(buf, format="png")
     st.download_button(
