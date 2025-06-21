@@ -5,21 +5,21 @@ import matplotlib.pyplot as plt
 from urllib.parse import urlencode
 from io import BytesIO
 
-st.set_page_config(layout=‘wide’)
-st.title(‘RIA - Risk Intelligence Analyst’)
+st.set_page_config(layout='wide’)
+st.title('RIA - Risk Intelligence Analyst’)
 
 # Load Excel data
 
-df = pd.read_excel(‘Ecommerce_Graph_Data.xlsx’, sheet_name=None)
-brands = df[‘Brands’]
-product_sets = df[‘ProductSets’]
-child_products = df[‘ChildProducts’]
-sellers = df[‘Sellers’]
-offers = df[‘Offers’]
-customers = df[‘Customers’]
-orders = df[‘Orders’]
-order_items = df[‘OrderItems’]
-reviews = df[‘Reviews’]
+df = pd.read_excel('Ecommerce_Graph_Data.xlsx’, sheet_name=None)
+brands = df['Brands’]
+product_sets = df['ProductSets’]
+child_products = df['ChildProducts’]
+sellers = df['Sellers’]
+offers = df['Offers’]
+customers = df['Customers’]
+orders = df['Orders’]
+order_items = df['OrderItems’]
+reviews = df['Reviews’]
 
 # Build graph
 
@@ -28,23 +28,23 @@ G = nx.DiGraph()
 def build_graph():
 # Add nodes
 for _, row in brands.iterrows():
-G.add_node(row[‘BrandID’], type=‘Brand’)
+G.add_node(row['BrandID’], type='Brand’)
 for _, row in product_sets.iterrows():
-G.add_node(row[‘ProductSetID’], type=‘ProductSet’)
+G.add_node(row['ProductSetID’], type='ProductSet’)
 for _, row in child_products.iterrows():
-G.add_node(row[‘ChildProductID’], type=‘ChildProduct’)
+G.add_node(row['ChildProductID’], type='ChildProduct’)
 for _, row in sellers.iterrows():
-G.add_node(row[‘SellerID’], type=‘Seller’)
+G.add_node(row['SellerID’], type='Seller’)
 for _, row in offers.iterrows():
-G.add_node(row[‘OfferID’], type=‘Offer’)
+G.add_node(row['OfferID’], type='Offer’)
 for _, row in customers.iterrows():
-G.add_node(row[‘CustomerID’], type=‘Customer’)
+G.add_node(row['CustomerID’], type='Customer’)
 for _, row in orders.iterrows():
-G.add_node(row[‘OrderID’], type=‘Order’)
+G.add_node(row['OrderID’], type='Order’)
 for _, row in order_items.iterrows():
-G.add_node(row[‘OrderItemID’], type=‘OrderItem’)
+G.add_node(row['OrderItemID’], type='OrderItem’)
 for _, row in reviews.iterrows():
-G.add_node(row[‘ReviewID’], type=‘Review’)
+G.add_node(row['ReviewID’], type='Review’)
 
 ```
 # Add edges
@@ -70,30 +70,30 @@ build_graph()
 # Parse query parameters
 
 params = st.query_params  # Updated for newer Streamlit versions
-selected_id = params.get(‘entity_id’, None)
-selected_type = params.get(‘type’, None)
-depth = int(params.get(‘depth’, 2))
+selected_id = params.get('entity_id’, None)
+selected_type = params.get('type’, None)
+depth = int(params.get('depth’, 2))
 
 # Entity types for dropdown
 
 entity_types = {
-‘Brand’: brands[‘BrandID’].tolist(),
-‘Review’: reviews[‘ReviewID’].tolist(),
-‘Customer’: customers[‘CustomerID’].tolist(),
-‘Seller’: sellers[‘SellerID’].tolist(),
-‘ProductSet’: product_sets[‘ProductSetID’].tolist(),
-‘ChildProduct’: child_products[‘ChildProductID’].tolist(),
-‘Offer’: offers[‘OfferID’].tolist(),
-‘Order’: orders[‘OrderID’].tolist(),
-‘OrderItem’: order_items[‘OrderItemID’].tolist()
+'Brand’: brands['BrandID’].tolist(),
+'Review’: reviews['ReviewID’].tolist(),
+'Customer’: customers['CustomerID’].tolist(),
+'Seller’: sellers['SellerID’].tolist(),
+'ProductSet’: product_sets['ProductSetID’].tolist(),
+'ChildProduct’: child_products['ChildProductID’].tolist(),
+'Offer’: offers['OfferID’].tolist(),
+'Order’: orders['OrderID’].tolist(),
+'OrderItem’: order_items['OrderItemID’].tolist()
 }
 
 # If no selection, allow dropdown input
 
 if not selected_id or not selected_type:
-selected_type = st.selectbox(‘Select Entity Type’, list(entity_types.keys()))
+selected_type = st.selectbox('Select Entity Type’, list(entity_types.keys()))
 selected_id = st.selectbox(f’Select {selected_type} ID’, entity_types[selected_type])
-depth = st.slider(‘Connection Depth’, 1, 4, 2)
+depth = st.slider('Connection Depth’, 1, 4, 2)
 
 # Expand from selected entity using breadth-first search
 
@@ -114,15 +114,15 @@ return visited
 # Graph coloring
 
 color_map = {
-‘Brand’: ‘skyblue’,
-‘ProductSet’: ‘lightgreen’,
-‘ChildProduct’: ‘pink’,
-‘Seller’: ‘orange’,
-‘Offer’: ‘lightgrey’,
-‘Customer’: ‘yellow’,
-‘Order’: ‘violet’,
-‘OrderItem’: ‘cyan’,
-‘Review’: ‘coral’
+'Brand’: 'skyblue’,
+'ProductSet’: 'lightgreen’,
+'ChildProduct’: 'pink’,
+'Seller’: 'orange’,
+'Offer’: 'lightgrey’,
+'Customer’: 'yellow’,
+'Order’: 'violet’,
+'OrderItem’: 'cyan’,
+'Review’: 'coral’
 }
 
 def draw_subgraph(center_id, depth):
@@ -149,7 +149,7 @@ plt.clf()
 # Compute visited nodes using breadth-first search up to selected depth
 
 def compute_visited_nodes(center_id, depth):
-visited = {center_id: {‘depth’: 0, ‘reason’: ‘Origin’}}
+visited = {center_id: {'depth’: 0, 'reason’: 'Origin’}}
 current_layer = [center_id]
 for d in range(1, depth + 1):
 next_layer = []
@@ -158,11 +158,11 @@ neighbors = list(G.successors(node)) + list(G.predecessors(node))
 for n in neighbors:
 if n not in visited:
 # Get edge relation/label
-relation = ‘connected’
+relation = 'connected’
 if G.has_edge(node, n):
-relation = G.edges[node, n].get(‘relation’, ‘connected’)
+relation = G.edges[node, n].get('relation’, 'connected’)
 elif G.has_edge(n, node):
-relation = G.edges[n, node].get(‘relation’, ‘connected’)
+relation = G.edges[n, node].get('relation’, 'connected’)
 
 ```
                 reason = f'{node} ⇄ {n} via \'{relation}\''
@@ -175,7 +175,7 @@ return visited
 # Run and display
 
 if selected_id:
-st.subheader(‘🔗 Connected Entities’)
+st.subheader('🔗 Connected Entities’)
 connected_nodes = fan_out_graph(selected_id, depth)
 st.markdown(f’{len(connected_nodes)} nodes connected to `{selected_id}` within {depth} hops.’)
 
@@ -249,3 +249,4 @@ for d in range(1, depth + 1):
         )
     else:
         st.write(f'No nodes found at depth {d}')
+        
