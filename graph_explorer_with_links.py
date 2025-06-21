@@ -138,8 +138,7 @@ def draw_subgraph(center_id, depth, show_labels=True):
     pos = nx.spring_layout(subgraph, k=0.5, iterations=30)
     nx.draw_networkx_nodes(subgraph, pos, node_size=300, node_color=node_colors, alpha=0.8)
     nx.draw_networkx_edges(subgraph, pos, arrows=True, arrowstyle='->', arrowsize=10)
-    if show_labels:
-        nx.draw_networkx_labels(subgraph, pos, font_size=7)
+    nx.draw_networkx_labels(subgraph, pos, font_size=7)
     plt.title(f'Graph for {center_id} (Depth {depth})')
     plt.axis('off')
     plt.tight_layout()
@@ -180,7 +179,6 @@ if selected_id:
 
     # Compute and display risk score
     score_result = score_entity(selected_id, visited, G)
-    
     st.markdown(f"### 🧮 Risk Score: **{score_result['risk_score']}**")
     if score_result['abuse_tags']:
         st.write("🚩 Abuse Tags:", ", ".join(score_result['abuse_tags']))
@@ -233,7 +231,6 @@ if selected_id:
     # Draw main subgraph
     draw_subgraph(selected_id, depth, show_labels)
 
-    
     # Multiple Graph Visualizations by Depth
     st.markdown('### 🌐 Visualizations by Depth')
     for d in range(1, depth + 1):
@@ -249,8 +246,7 @@ if selected_id:
             
             nx.draw_networkx_nodes(H, pos, node_color=node_colors, node_size=500, alpha=0.8, ax=ax)
             nx.draw_networkx_edges(H, pos, arrows=True, arrowstyle='->', arrowsize=15, ax=ax)
-            if show_labels:
-                nx.draw_networkx_labels(H, pos, font_size=7, ax=ax)
+            nx.draw_networkx_labels(H, pos, font_size=7, ax=ax)
             
             # Add edge labels if they exist
             edge_labels = {}
