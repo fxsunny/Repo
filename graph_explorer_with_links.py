@@ -167,16 +167,6 @@ if selected_id:
     connected_nodes = fan_out_graph(selected_id, depth)
     st.markdown(f'{len(connected_nodes)} nodes connected to `{selected_id}` within {depth} hops.')
     
-'''
-    # Show each connected node as a clickable hyperlink
-    for node in sorted(connected_nodes):
-        node_type = G.nodes[node].get('type', 'Unknown')
-        params_dict = {'entity_id': node, 'type': node_type, 'depth': depth}
-        params_str = urlencode(params_dict)
-        link = f'<a href=\'?{params_str}\' target=\'_blank\'>{node} ({node_type})</a>'
-        st.markdown(link, unsafe_allow_html=True)
-'''
-    
     # Compute visited nodes for depth visualizations
     visited = compute_visited_nodes(selected_id, depth)
 
