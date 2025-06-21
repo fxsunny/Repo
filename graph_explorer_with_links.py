@@ -167,6 +167,7 @@ if selected_id:
     connected_nodes = fan_out_graph(selected_id, depth)
     st.markdown(f'{len(connected_nodes)} nodes connected to `{selected_id}` within {depth} hops.')
     
+'''
     # Show each connected node as a clickable hyperlink
     for node in sorted(connected_nodes):
         node_type = G.nodes[node].get('type', 'Unknown')
@@ -174,15 +175,33 @@ if selected_id:
         params_str = urlencode(params_dict)
         link = f'<a href=\'?{params_str}\' target=\'_blank\'>{node} ({node_type})</a>'
         st.markdown(link, unsafe_allow_html=True)
-
-
+'''
     
-    # Draw main subgraph
-    draw_subgraph(selected_id, depth)
-
     # Compute visited nodes for depth visualizations
     visited = compute_visited_nodes(selected_id, depth)
 
+    # Create summary per depth and type    
+    depth_summary = defaultdict(lambda: defaultdict(int))
+    for node, meta in visited.items():
+        if node == selected_id:
+            continue
+        d = meta.get('depth', '?')
+        t = G.nodes[node].get('type', 'Unknown')
+        depth_summary[d][t] += 1
+    
+    # Build and display summary string
+    summary_lines = [f"Analyzing {len(visited)-1} connections from `{selected_id}`:"]
+    for d in range(1, depth + 1):
+        type_counts = depth_summary.get(d, {})
+        type_parts = [f"{v} {k.lower() + ('s' if v > 1 else '')}" for k, v in sorted(type_counts.items())]
+        if type_parts:
+            summary_lines.append(f"- Within {d} hop{'s' if d > 1 else ''}: " + ", ".join(type_parts))
+        else:
+            summary_lines.append(f"- Within {d} hop{'s' if d > 1 else ''}: No connections")
+    
+    st.markdown("  \n".join(summary_lines))
+
+    
     # Prepare detailed connected entity table
     if visited:
         rows = []
@@ -204,29 +223,9 @@ if selected_id:
         st.write(df_display.to_html(escape=False, index=False), unsafe_allow_html=True)
     else:
         st.warning("No connected entities found.")
-
-
     
-    # Create summary per depth and type    
-    depth_summary = defaultdict(lambda: defaultdict(int))
-    for node, meta in visited.items():
-        if node == selected_id:
-            continue
-        d = meta.get('depth', '?')
-        t = G.nodes[node].get('type', 'Unknown')
-        depth_summary[d][t] += 1
-    
-    # Build and display summary string
-    summary_lines = [f"Analyzing {len(visited)-1} connections from `{selected_id}`:"]
-    for d in range(1, depth + 1):
-        type_counts = depth_summary.get(d, {})
-        type_parts = [f"{v} {k.lower() + ('s' if v > 1 else '')}" for k, v in sorted(type_counts.items())]
-        if type_parts:
-            summary_lines.append(f"- Within {d} hop{'s' if d > 1 else ''}: " + ", ".join(type_parts))
-        else:
-            summary_lines.append(f"- Within {d} hop{'s' if d > 1 else ''}: No connections")
-    
-    st.markdown("  \n".join(summary_lines))
+    # Draw main subgraph
+    draw_subgraph(selected_id, depth)
     
     # Multiple Graph Visualizations by Depth
     st.markdown('### 🌐 Visualizations by Depth')
