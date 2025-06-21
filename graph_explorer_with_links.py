@@ -63,10 +63,26 @@ def build_graph():
 build_graph()
 
 # Parse query parameters
-params = st.query_params()
+params = st.experimental_get_query_params()
 selected_id = params.get("entity_id", [None])[0]
 selected_type = params.get("type", [None])[0]
 depth = int(params.get("depth", [2])[0])
+
+# --- Compute visited nodes using breadth-first search up to selected depth ---
+visited = {center_id: {"depth": 0, "reason": "Origin"}}
+current_layer = [center_id]
+for d in range(1, depth + 1):
+    next_layer = []
+    for node in current_layer:
+        neighbors = list(G.successors(node)) + list(G.predecessors(node))
+        for n in neighbors:
+            if n not in visited:
+                label = G.edges[node, n]["label"] if G.has_edge(node, n) else G.edges[n, node]["label"]
+                reason = f"{node} ⇄ {n} via '{label}'"
+                visited[n] = {"depth": d, "reason": reason}
+                next_layer.append(n)
+    current_layer = next_layer
+
 
 # If no selection, allow dropdown input
 entity_types = {
