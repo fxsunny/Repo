@@ -221,8 +221,8 @@ if selected_id:
             rows.append({'Entity ID': hyperlink, 'Type': node_type, 'Depth': d, 'Connection Description': reason})
     
         df_display = pd.DataFrame(rows)
-        st.markdown('### 🔗 Connected Entities')
-        st.write(f"Total connected entities: {len(df_display)}")
+        # st.markdown('### 🔗 Connected Entities')
+        # st.write(f"Total connected entities: {len(df_display)}")
         st.write("Click any ID to explore it in a new tab.")
         st.write(df_display.to_html(escape=False, index=False), unsafe_allow_html=True)
     else:
