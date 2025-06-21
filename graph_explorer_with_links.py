@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 from urllib.parse import urlencode
 from io import BytesIO
 
-st.set_page_config(layout='wide')
-st.title('RIA - Risk Intelligence Analyst')
+# st.set_page_config(layout='wide')
+st.title('RIA: Risk Intelligence Analyst')
 
 # Load Excel data
 df = pd.read_excel('Ecommerce_Graph_Data.xlsx', sheet_name=None)
@@ -86,7 +86,8 @@ entity_types = {
 if not selected_id or not selected_type:
     selected_type = st.selectbox('Select Entity Type', list(entity_types.keys()))
     selected_id = st.selectbox(f'Select {selected_type} ID', entity_types[selected_type])
-    depth = st.slider('Connection Depth', 1, 4, 2)
+    depth = st.sidebar.selectbox("Connection Depth", [1, 2, 3, 4, 5], index=2)
+    # depth = st.slider('Connection Depth', 1, 4, 2)
 
 # Expand from selected entity using breadth-first search
 def fan_out_graph(center_id, depth=1):
