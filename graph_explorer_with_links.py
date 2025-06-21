@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from urllib.parse import urlencode
 from io import BytesIO
 from collections import defaultdict
+from scoring import score_entity
 
 
 # st.set_page_config(layout='wide')
@@ -176,6 +177,14 @@ if selected_id:
     
     # Compute visited nodes for depth visualizations
     visited = compute_visited_nodes(selected_id, depth)
+
+    # Compute and display risk score
+    score_result = score_entity(selected_id, visited, G)
+    
+    st.markdown(f"### 🧮 Risk Score: **{score_result['risk_score']}**")
+    if score_result['abuse_tags']:
+        st.write("🚩 Abuse Tags:", ", ".join(score_result['abuse_tags']))
+    st.caption(f"ℹ️ Reason: {score_result['reason']}")
 
     # Create summary per depth and type    
     depth_summary = defaultdict(lambda: defaultdict(int))
