@@ -309,19 +309,18 @@ for d in range(1, depth + 1):
             'OrderItems': order_items,
             'Reviews': reviews
         }
-    ''' # Create visualization and analytics modules
-        viz, analytics = create_analysis_modules(G, df_dict)
+        # Create visualization and analytics modules
+        #viz, analytics = create_analysis_modules(G, df_dict)
         # Use enhanced visualization
-        fig = viz.create_interactive_plot(selected_id, depth)
-        fig = viz.add_minimap(fig)
-        st.plotly_chart(fig)
+        #fig = viz.create_interactive_plot(selected_id, depth)
+        #fig = viz.add_minimap(fig)
+        #st.plotly_chart(fig)
         # Use analytics features
-        metrics = analytics.calculate_centrality_metrics(selected_id)
-        patterns = analytics.detect_patterns(selected_id)
-        
+        #metrics = analytics.calculate_centrality_metrics(selected_id)
+        #patterns = analytics.detect_patterns(selected_id)
         # Display results
-        st.write("Centrality Metrics:", metrics)
-        st.write("Detected Patterns:", patterns)    '''
+        #st.write("Centrality Metrics:", metrics)
+        #st.write("Detected Patterns:", patterns)
     else:
         st.write(f'No nodes found at depth {d}')
 
