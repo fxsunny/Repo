@@ -309,8 +309,7 @@ for d in range(1, depth + 1):
             'OrderItems': order_items,
             'Reviews': reviews
         }
-    '''
-        # Create visualization and analytics modules
+    ''' # Create visualization and analytics modules
         viz, analytics = create_analysis_modules(G, df_dict)
         # Use enhanced visualization
         fig = viz.create_interactive_plot(selected_id, depth)
@@ -322,8 +321,7 @@ for d in range(1, depth + 1):
         
         # Display results
         st.write("Centrality Metrics:", metrics)
-        st.write("Detected Patterns:", patterns)
-    '''
+        st.write("Detected Patterns:", patterns)    '''
     else:
         st.write(f'No nodes found at depth {d}')
 
