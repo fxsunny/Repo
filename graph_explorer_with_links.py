@@ -309,6 +309,7 @@ for d in range(1, depth + 1):
             'OrderItems': order_items,
             'Reviews': reviews
         }
+    '''
         # Create visualization and analytics modules
         viz, analytics = create_analysis_modules(G, df_dict)
         # Use enhanced visualization
@@ -322,6 +323,7 @@ for d in range(1, depth + 1):
         # Display results
         st.write("Centrality Metrics:", metrics)
         st.write("Detected Patterns:", patterns)
+    '''
     else:
         st.write(f'No nodes found at depth {d}')
 
