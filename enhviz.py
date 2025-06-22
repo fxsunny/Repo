@@ -19,6 +19,21 @@ class EnhancedVisualization:
             'Review': 'coral'
         }
 
+    def _get_subgraph_nodes(self, center_id: str, depth: int):
+        visited = set([center_id])
+        current_layer = [center_id]
+        for _ in range(depth):
+            next_layer = []
+            for node in current_layer:
+                neighbors = list(self.G.successors(node)) + list(self.G.predecessors(node))
+                for n in neighbors:
+                    if n not in visited:
+                        next_layer.append(n)
+            visited.update(next_layer)
+            current_layer = next_layer
+        
+        return self.G.subgraph(visited)
+        
     def create_interactive_plot(self, center_id: str, depth: int):
         # Creates interactive plot with zoom/pan
         sub_nodes = self._get_subgraph_nodes(center_id, depth)
@@ -52,6 +67,21 @@ class EnhancedVisualization:
         
         return fig
 
+    def _create_minimap(self):
+        # Create a simplified version of the graph for the minimap
+        mini_pos = nx.spring_layout(self.G)
+        mini_fig = go.Figure()
+        
+        # Add simplified nodes
+        mini_fig.add_trace(go.Scatter(
+            x=[mini_pos[node][0] for node in self.G.nodes()],
+            y=[mini_pos[node][1] for node in self.G.nodes()],
+            mode='markers',
+            marker=dict(size=2)
+        ))
+        
+        return mini_fig
+    
     def add_minimap(self, fig: go.Figure):
         # Adds minimap to main visualization
         fig.add_layout_image(
@@ -74,6 +104,17 @@ class AdvancedAnalytics:
         self.G = G
         self.df_dict = df_dict
 
+    def _detect_unusual_activity(self, node_id: str) -> List[Dict[str, Any]]:
+        unusual_activities = []
+        node_type = self.G.nodes[node_id]['type']
+        # Add your unusual activity detection logic here
+        return unusual_activities
+    
+    def _identify_clusters(self, node_id: str) -> List[Dict[str, Any]]:
+        clusters = []
+        # Add your clustering logic here
+        return clusters
+        
     def calculate_centrality_metrics(self, node_id: str) -> Dict[str, float]:
         # Calculate various centrality measures
         metrics = {
