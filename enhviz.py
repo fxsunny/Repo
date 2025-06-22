@@ -70,17 +70,22 @@ class EnhancedVisualization:
     def _create_minimap(self):
         # Create a simplified version of the graph for the minimap
         mini_pos = nx.spring_layout(self.G)
-        mini_fig = go.Figure()
         
-        # Add simplified nodes
-        mini_fig.add_trace(go.Scatter(
-            x=[mini_pos[node][0] for node in self.G.nodes()],
-            y=[mini_pos[node][1] for node in self.G.nodes()],
-            mode='markers',
-            marker=dict(size=2)
-        ))
+        # Convert to base64 image string
+        import io
+        import base64
+        from PIL import Image
         
-        return mini_fig
+        buf = io.BytesIO()
+        plt.figure(figsize=(2,2))
+        nx.draw(self.G, mini_pos, node_size=1)
+        plt.savefig(buf, format='png')
+        plt.close()
+        buf.seek(0)
+        
+        # Convert to base64 string
+        img_str = base64.b64encode(buf.getvalue()).decode()
+        return f'data:image/png;base64,{img_str}'
     
     def add_minimap(self, fig: go.Figure):
         # Adds minimap to main visualization
@@ -98,6 +103,7 @@ class EnhancedVisualization:
             )
         )
         return fig
+
 
 class AdvancedAnalytics:
     def __init__(self, G: nx.DiGraph, df_dict: Dict[str, pd.DataFrame]):
