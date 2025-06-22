@@ -297,38 +297,34 @@ for d in range(1, depth + 1):
             file_name=f'graph_depth_{d}_{selected_id}.png',
             mime='image/png'
         )
-        # enhviz 
-        df_dict = {
-            'Brands': brands,
-            'ProductSets': product_sets,
-            'ChildProducts': child_products,
-            'Sellers': sellers,
-            'Offers': offers,
-            'Customers': customers,
-            'Orders': orders,
-            'OrderItems': order_items,
-            'Reviews': reviews
-        }
-        # Create visualization and analytics modules
-        viz, analytics = create_analysis_modules(G, df_dict)
-        
-        # Use enhanced visualization 
-        fig = viz.create_interactive_plot(selected_id, depth)
-        
-        # Remove the minimap for now as it's causing errors
-        # fig = viz.add_minimap(fig)  
-        
-        st.plotly_chart(fig)
-        
-        # Use analytics features
-        metrics = analytics.calculate_centrality_metrics(selected_id)
-        patterns = analytics.detect_patterns(selected_id)
-        
-        # Display results
-        st.write("Centrality Metrics:", metrics)
-        st.write("Detected Patterns:", patterns)
-
     else:
         st.write(f'No nodes found at depth {d}')
 
+# Create visualization and analytics modules
+# enhviz 
+df_dict = {
+    'Brands': brands,
+    'ProductSets': product_sets,
+    'ChildProducts': child_products,
+    'Sellers': sellers,
+    'Offers': offers,
+    'Customers': customers,
+    'Orders': orders,
+    'OrderItems': order_items,
+    'Reviews': reviews
+}
+st.subheader('Advanced Visualization')
+viz, analytics = create_analysis_modules(G, df_dict)
+
+# Use enhanced visualization 
+fig = viz.create_interactive_plot(selected_id, depth)
+st.plotly_chart(fig)
+
+# Use analytics features
+metrics = analytics.calculate_centrality_metrics(selected_id)
+patterns = analytics.detect_patterns(selected_id)
+
+# Display results
+st.write("Centrality Metrics:", metrics)
+st.write("Detected Patterns:", patterns)
 
