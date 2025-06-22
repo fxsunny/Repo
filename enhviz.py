@@ -219,10 +219,17 @@ class AdvancedAnalytics:
         # Calculate various centrality measures
         metrics = {
             'degree_centrality': nx.degree_centrality(self.G)[node_id],
-            'betweenness_centrality': nx.betweenness_centrality(self.G)[node_id],
-            'eigenvector_centrality': nx.eigenvector_centrality(self.G)[node_id]
+            'betweenness_centrality': nx.betweenness_centrality(self.G)[node_id]
         }
+        
+        # Try to calculate eigenvector centrality with increased max iterations
+        try:
+            metrics['eigenvector_centrality'] = nx.eigenvector_centrality(self.G, max_iter=1000)[node_id]
+        except:
+            metrics['eigenvector_centrality'] = None
+            
         return metrics
+    
 
     def detect_patterns(self, node_id: str) -> Dict[str, Any]:
         # Implement pattern detection
