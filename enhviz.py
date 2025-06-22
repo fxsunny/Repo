@@ -104,16 +104,110 @@ class AdvancedAnalytics:
         self.G = G
         self.df_dict = df_dict
 
+#    def _detect_unusual_activity(self, node_id: str) -> List[Dict[str, Any]]:
+#        unusual_activities = []
+#        node_type = self.G.nodes[node_id]['type']
+#        # Add your unusual activity detection logic here
+#        return unusual_activities
+    
+#    def _identify_clusters(self, node_id: str) -> List[Dict[str, Any]]:
+#        clusters = []
+#        # Add your clustering logic here
+#        return clusters
+
     def _detect_unusual_activity(self, node_id: str) -> List[Dict[str, Any]]:
         unusual_activities = []
         node_type = self.G.nodes[node_id]['type']
-        # Add your unusual activity detection logic here
+        
+        if node_type == 'Customer':
+            # Get all reviews by this customer
+            customer_reviews = self.df_dict['Reviews'][self.df_dict['Reviews']['CustomerID'] == node_id]
+            
+            # Check for rapid reviewing (multiple reviews in short time periods)
+            if len(customer_reviews) > 0:
+                review_dates = pd.to_datetime(customer_reviews['ReviewDate'])
+                time_diffs = review_dates.diff()
+                rapid_reviews = time_diffs[time_diffs.dt.total_seconds() < 3600]  # Reviews within 1 hour
+                
+                if not rapid_reviews.empty:
+                    unusual_activities.append({
+                        'type': 'rapid_reviewing',
+                        'count': len(rapid_reviews),
+                        'timestamps': rapid_reviews.index.tolist()
+                    })
+            
+            # Check for extreme rating patterns
+            if len(customer_reviews) >= 3:  # Minimum reviews threshold
+                extreme_ratings = customer_reviews[
+                    (customer_reviews['Rating'] == 1) | 
+                    (customer_reviews['Rating'] == 5)
+                ]
+                extreme_ratio = len(extreme_ratings) / len(customer_reviews)
+                
+                if extreme_ratio > 0.8:  # 80% of reviews are extreme
+                    unusual_activities.append({
+                        'type': 'extreme_rating_bias',
+                        'ratio': extreme_ratio,
+                        'review_count': len(customer_reviews)
+                    })
+        
         return unusual_activities
-    
+
     def _identify_clusters(self, node_id: str) -> List[Dict[str, Any]]:
         clusters = []
-        # Add your clustering logic here
+        node_type = self.G.nodes[node_id]['type']
+        
+        if node_type == 'Customer':
+            # Get all reviews by this customer
+            customer_reviews = self.df_dict['Reviews'][self.df_dict['Reviews']['CustomerID'] == node_id]
+            
+            if len(customer_reviews) > 0:
+                # Cluster by product categories
+                reviewed_products = customer_reviews['ChildProductID'].tolist()
+                product_categories = []
+                
+                for cp_id in reviewed_products:
+                    # Find ProductSetID for this ChildProduct
+                    ps_id = self.df_dict['ChildProducts'][
+                        self.df_dict['ChildProducts']['ChildProductID'] == cp_id
+                    ]['ProductSetID'].values[0]
+                    
+                    # Get category for this ProductSet
+                    category = self.df_dict['ProductSets'][
+                        self.df_dict['ProductSets']['ProductSetID'] == ps_id
+                    ]['Category'].values[0]
+                    
+                    product_categories.append(category)
+                
+                # Count reviews per category
+                category_counts = pd.Series(product_categories).value_counts()
+                
+                # Identify dominant categories (>50% of reviews)
+                for category, count in category_counts.items():
+                    if count/len(customer_reviews) > 0.5:
+                        clusters.append({
+                            'type': 'category_focus',
+                            'category': category,
+                            'review_count': count,
+                            'percentage': count/len(customer_reviews) * 100
+                        })
+                
+                # Time-based clustering
+                review_dates = pd.to_datetime(customer_reviews['ReviewDate'])
+                time_clusters = pd.cut(review_dates, bins=5)  # Split into 5 time periods
+                time_distribution = time_clusters.value_counts()
+                
+                # Check for time-based review clusters
+                max_cluster_size = time_distribution.max()
+                if max_cluster_size/len(customer_reviews) > 0.4:  # 40% of reviews in one time period
+                    clusters.append({
+                        'type': 'time_cluster',
+                        'period': time_distribution.index[time_distribution.argmax()],
+                        'review_count': max_cluster_size
+                    })
+        
         return clusters
+        
         
     def calculate_centrality_metrics(self, node_id: str) -> Dict[str, float]:
         # Calculate various centrality measures
