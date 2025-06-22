@@ -7,3 +7,6 @@ plotly
 scipy
 numpy
 typing
+PIL
+base64
+io
