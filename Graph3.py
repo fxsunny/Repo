@@ -96,3 +96,147 @@ nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=7, ax=ax
 
 plt.title("Multi-Entity Review Graph", fontsize=14)
 st.pyplot(fig)
+
+# -------------------------
+# 5. Review Ring Detection
+# -------------------------
+st.header("🕵️ Review Ring Detection")
+
+# Step 1: Map reviews (customer → product)
+customer_product = {}
+for r in reviews:
+    c = r["customer"]
+    p = r["product"]
+    customer_product.setdefault(c, set()).add(p)
+
+# ➕ Threshold selector
+min_shared = st.slider("🔧 Minimum Shared Products for Strong Connection", min_value=1, max_value=5, value=2)
+
+# Step 2: Create customer-customer projection graph
+G_proj = nx.Graph()
+for c1 in customer_product:
+    for c2 in customer_product:
+        if c1 >= c2:
+            continue
+        shared_products = customer_product[c1].intersection(customer_product[c2])
+        if len(shared_products) >= min_shared:
+            G_proj.add_edge(c1, c2, weight=len(shared_products))
+
+# Step 3: Detect connected components (clusters of closely connected customers)
+rings = list(nx.connected_components(G_proj))
+
+# Step 4: Analyze each ring
+suspicious_rings = []
+for ring in rings:
+    ring_customers = list(ring)
+    reviewed_products = set()
+    for cust in ring_customers:
+        reviewed_products |= customer_product[cust]
+
+    involved_sellers = {products[p]["seller"] for p in reviewed_products if p in products}
+    involved_brands = {products[p]["brand"] for p in reviewed_products if p in products}
+
+    suspicious_rings.append({
+        "customers": ring_customers,
+        "shared_products": list(reviewed_products),
+        "sellers": list(involved_sellers),
+        "brands": [brands[b] for b in involved_brands]
+    })
+
+# Step 5: Display results
+if suspicious_rings:
+    st.success(f"Found {len(suspicious_rings)} potential review ring(s):")
+    for i, ring in enumerate(suspicious_rings, 1):
+        st.markdown(f"### 🔸 Ring {i}")
+        st.write(f"**Customers:** {', '.join(ring['customers'])}")
+        st.write(f"**Shared Products Reviewed:** {', '.join(ring['shared_products'])}")
+        st.write(f"**Sellers Involved:** {', '.join(ring['sellers'])}")
+        st.write(f"**Brands Involved:** {', '.join(ring['brands'])}")
+
+        # 🎨 Visualize this ring
+        subgraph = G_proj.subgraph(ring['customers'])
+        fig, ax = plt.subplots(figsize=(6, 4))
+        nx.draw(subgraph, with_labels=True, node_color="lightblue", node_size=1000, font_weight="bold", edge_color="gray", ax=ax)
+        plt.title(f"Review Ring {i}: Customer-Customer Graph")
+        st.pyplot(fig)
+else:
+    st.info("No suspicious review rings found based on current threshold.")
+
+
+# Step 6: Prepare download data
+download_rows = []
+for idx, ring in enumerate(suspicious_rings, start=1):
+    for cust in ring["customers"]:
+        download_rows.append({
+            "Ring_ID": idx,
+            "Customer_ID": cust,
+            "Shared_Products": ", ".join(ring["shared_products"]),
+            "Sellers": ", ".join(ring["sellers"]),
+            "Brands": ", ".join(ring["brands"])
+        })
+
+df_download = pd.DataFrame(download_rows)
+
+# Add download button
+st.download_button(
+    label="📥 Download Ring Cluster Data as CSV",
+    data=df_download.to_csv(index=False),
+    file_name="review_rings.csv",
+    mime="text/csv"
+)
+
+# Step 6: Prepare download data with ratings
+# download_rows = []
+# Create a quick lookup of (customer, product) → rating
+# rating_lookup = {
+#     (r["customer"], r["product"]): r["rating"] for r in reviews
+# }
+
+# for idx, ring in enumerate(suspicious_rings, start=1):
+#     for cust in ring["customers"]:
+#         for product in customer_product[cust]:
+#             rating = rating_lookup.get((cust, product), "")
+#             download_rows.append({
+#                 "Ring_ID": idx,
+#                 "Customer_ID": cust,
+#                 "Product_Reviewed": product,
+#                 "Rating": rating,
+#                 "Sellers": ", ".join(ring["sellers"]),
+#                 "Brands": ", ".join(ring["brands"])
+#             })
+# 
+# df_download = pd.DataFrame(download_rows)
+# 
+# CSV download button
+# st.download_button(
+#     label="📥 Download Ring Cluster Data as CSV",
+#     data=df_download.to_csv(index=False),
+#     file_name="review_rings.csv",
+#     mime="text/csv"
+# )
+
+# Step 7: Export customer-customer graph as PNG
+import io
+
+fig_full, ax = plt.subplots(figsize=(8, 6))
+nx.draw(
+    G_proj, with_labels=True, node_color="skyblue",
+    node_size=1000, font_size=10, edge_color="gray", ax=ax
+)
+plt.title("Customer-Shared Review Product Graph (Projection)", fontsize=12)
+
+# Save to in-memory buffer
+buf = io.BytesIO()
+plt.savefig(buf, format="png")
+buf.seek(0)
+
+# Show and download
+st.subheader("📷 Export Graph Visualization")
+st.pyplot(fig_full)
+st.download_button(
+    label="🖼️ Download Customer Graph as PNG",
+    data=buf,
+    file_name="customer_review_graph.png",
+    mime="image/png"
+)
+
