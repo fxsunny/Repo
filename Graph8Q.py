@@ -56,15 +56,100 @@ class DataLoader:
     
     @staticmethod
     def _generate_synthetic_data() -> Dict:
-        # [Previous synthetic data generation code remains the same]
-        # Keeping functionality identical to original
-        [...]
-        #reviews = inject_self_reviews(reviews, products)
-        #reviews = inject_review_swap_rings(reviews, swap_pairs=[("S_1", "S_2")], products=products)
-        #reviews = inject_review_bursts(reviews, product_id="P_3")
-        #reviews = inject_product_hijack(reviews, hijacked_product="P_hijacked", donor_reviews=reviews)
-        #reviews = inject_brushing_orders(reviews)
-        #reviews = inject_sockpuppet_behavior(reviews, seller="S_3", products=["P_9", "P_10", "P_11"])
+        random.seed(42)
+        num_customers = 120
+        num_brands = 5
+        num_sellers = 4
+        num_products_per_brand = 8
+        num_random_reviews = 500
+        ring_configs = [(5, 3), (4, 4), (6, 5), (3, 2), (7, 3)]
+        
+        customers = [f"C{str(i).zfill(3)}" for i in range(1, num_customers + 1)]
+        brands = {f"B{str(i).zfill(2)}": f"Brand{i}" for i in range(1, num_brands + 1)}
+        sellers = [f"S{str(i).zfill(2)}" for i in range(1, num_sellers + 1)]
+        
+        # Generate products
+        products = {}
+        for b in brands:
+            for i in range(1, num_products_per_brand + 1):
+                pid = f"{b}P{str(i).zfill(3)}"
+                products[pid] = {"brand": b, "seller": random.choice(sellers)}
+        
+        # Generate reviews and rings
+        reviews = []
+        review_id = 1
+        
+        # Random reviews
+        for _ in range(num_random_reviews):
+            reviews.append({
+                "review_id": f"R{str(review_id).zfill(3)}",
+                "customer": random.choice(customers),
+                "product": random.choice(list(products.keys())),
+                "rating": random.randint(1, 5)
+            })
+            review_id += 1
+        
+        # Generate ring reviews
+        ring_customers = customers[:sum(c for c, _ in ring_configs)]
+        ring_index = 0
+        ring_segments = []
+        
+        for ring_size, shared_count in ring_configs:
+            ring_custs = ring_customers[ring_index: ring_index + ring_size]
+            ring_index += ring_size
+            ring_prods = random.sample(list(products.keys()), shared_count)
+            
+            for cust in ring_custs:
+                for prod in ring_prods:
+                    reviews.append({
+                        "review_id": f"R{str(review_id).zfill(3)}",
+                        "customer": cust,
+                        "product": prod,
+                        "rating": random.randint(4, 5)
+                    })
+                    review_id += 1
+            
+            ring_segments.append((ring_custs, ring_prods))
+
+
+        # Stub: Self-Review injection
+        # Placeholder: Inject reviews from seller IDs also acting as customers
+        # Example:
+        # for seller_id in sellers[:1]:
+        #     reviews.append({"review_id": f"R{str(review_id).zfill(3)}", "customer": seller_id, "product": ..., "rating": 5})
+        #     review_id += 1
+        
+        # Stub: Review Swap injection
+        # Placeholder: Create interlinked dummy reviews across two seller product groups
+        
+        # Stub: Review Bursts injection
+        # Placeholder: Assign identical or near-identical timestamps to many reviews on a product
+        
+        # Stub: Product Hijacking injection
+        # Placeholder: Simulate product lineage change and suspicious review carryovers
+        
+        # Stub: Return Abuse / Brushing injection
+        # Placeholder: Add dummy orders with no shipment but linked reviews
+        
+        # Stub: Sockpuppet injection
+        # Placeholder: Add a customer that reviews 20+ products from 1 seller
+        # reviews = inject_self_reviews(reviews, products)
+        # reviews = inject_review_swap_rings(reviews, swap_pairs=[("S_1", "S_2")], products=products)
+        # reviews = inject_review_bursts(reviews, product_id="P_3")
+        # reviews = inject_product_hijack(reviews, hijacked_product="P_hijacked", donor_reviews=reviews)
+        # reviews = inject_brushing_orders(reviews)
+        # reviews = inject_sockpuppet_behavior(reviews, seller="S_3", products=["P_9", "P_10", "P_11"])
+
+        
+        return {
+            "customers": customers,
+            "sellers": sellers,
+            "brands": brands,
+            "products": products,
+            "reviews": reviews,
+            "rings": ring_segments,
+            "source": "generated"
+        }
 
 
 class DataExporter:
