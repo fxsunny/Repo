@@ -5,30 +5,131 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
 import io
+import random
+
+import random
+
+def generate_sample_data_with_rings():
+    # Settings
+    random.seed(42)
+    num_customers = 120
+    num_brands = 5
+    num_sellers = 4
+    num_products_per_brand = 8
+    num_random_reviews = 500
+    ring_configs = [   # ring sizes
+        (5, 3),   # 5 customers review 3 shared products
+        (4, 4),
+        (6, 5),
+        (3, 2),
+        (7, 3)
+    ]
+
+    # IDs
+    customers = [f"C{str(i).zfill(3)}" for i in range(1, num_customers + 1)]
+    brands = {f"B{str(i).zfill(2)}": f"Brand{i}" for i in range(1, num_brands + 1)}
+    sellers = [f"S{str(i).zfill(2)}" for i in range(1, num_sellers + 1)]
+
+    # Products with brand prefix
+    products = {}
+    for b in brands.keys():
+        for i in range(1, num_products_per_brand + 1):
+            p_id = f"{b}P{str(i).zfill(3)}"
+            products[p_id] = {
+                "brand": b,
+                "seller": random.choice(sellers)
+            }
+
+    # Generate random reviews
+    reviews = []
+    review_id = 1
+    for _ in range(num_random_reviews):
+        cust = random.choice(customers)
+        prod = random.choice(list(products.keys()))
+        reviews.append({
+            "review_id": f"R{str(review_id).zfill(3)}",
+            "customer": cust,
+            "product": prod,
+            "rating": random.randint(1, 5)
+        })
+        review_id += 1
+
+    # Inject 5 review rings
+    ring_customers = customers[:sum(c for c, _ in ring_configs)]  # Reserve from start
+    ring_index = 0
+    ring_segments = []
+    for ring_size, shared_count in ring_configs:
+        ring_custs = ring_customers[ring_index: ring_index + ring_size]
+        ring_index += ring_size
+        ring_prods = random.sample(list(products.keys()), shared_count)
+        for cust in ring_custs:
+            for prod in ring_prods:
+                reviews.append({
+                    "review_id": f"R{str(review_id).zfill(3)}",
+                    "customer": cust,
+                    "product": prod,
+                    "rating": random.randint(4, 5)
+                })
+                review_id += 1
+        ring_segments.append((ring_custs, ring_prods))
+
+    return {
+        "customers": customers,
+        "sellers": sellers,
+        "brands": brands,
+        "products": products,
+        "reviews": reviews,
+        "rings": ring_segments  # Optional: use to test detection accuracy
+    }
+
+def validate_detected_rings(injected_rings, detected_rings):
+    injected_sets = [set(custs) for custs, _ in injected_rings]
+    detected_sets = [set(ring["customers"]) for ring in detected_rings]
+
+    results = []
+    for idx, inj in enumerate(injected_sets, 1):
+        match_type = "❌ Missed"
+        for det in detected_sets:
+            if inj == det:
+                match_type = "✅ Exact Match"
+                break
+            elif inj.issubset(det):
+                match_type = "🟡 Partial (Subset)"
+                break
+            elif inj.issuperset(det):
+                match_type = "🟠 Partial (Superset)"
+                break
+
+        results.append({
+            "Injected Ring ID": idx,
+            "Customers": ", ".join(sorted(injected_rings[idx - 1][0])),
+            "Products": ", ".join(sorted(injected_rings[idx - 1][1])),
+            "Detection Status": match_type
+        })
+
+    return pd.DataFrame(results)
+
 
 # -------------------------
 # 1. Sample Entity Data
 # -------------------------
-customers = ["C1", "C2", "C3", "C4", "C5"]
-sellers = ["S1", "S2"]
-brands = {"B1": "Philips", "B2": "GenericCo"}
+data = generate_sample_data_with_rings()
+customers = data["customers"]
+sellers = data["sellers"]
+brands = data["brands"]
+products = data["products"]
+reviews = data["reviews"]
+rings = data["rings"] 
 
-products = {
-    "P1": {"brand": "B1", "seller": "S1"},
-    "P2": {"brand": "B1", "seller": "S1"},
-    "P3": {"brand": "B2", "seller": "S2"},
-    "P4": {"brand": "B2", "seller": "S2"},
-}
+# Optional: Preview injected rings in sidebar
+st.sidebar.markdown("### 🔍 Injected Review Rings")
+for i, (ring_custs, ring_prods) in enumerate(rings, 1):
+    st.sidebar.write(f"Ring {i}: {len(ring_custs)} customers, {len(ring_prods)} products")
 
-reviews = [
-    {"review_id": "R1", "customer": "C1", "product": "P1", "rating": 5},
-    {"review_id": "R2", "customer": "C1", "product": "P2", "rating": 5},
-    {"review_id": "R3", "customer": "C2", "product": "P2", "rating": 4},
-    {"review_id": "R4", "customer": "C3", "product": "P3", "rating": 1},
-    {"review_id": "R5", "customer": "C4", "product": "P4", "rating": 1},
-    {"review_id": "R6", "customer": "C5", "product": "P3", "rating": 5},
-    {"review_id": "R7", "customer": "C5", "product": "P4", "rating": 5},
-]
+# Optional: Preview reviews
+with st.expander("📄 Preview Sample Reviews", expanded=False):
+    st.dataframe(pd.DataFrame(reviews[:20]))
+
 
 # -------------------------
 # 2. Build Graph
@@ -199,3 +300,24 @@ buf.seek(0)
 st.subheader("📷 Export Graph Visualization")
 st.pyplot(fig_full)
 st.download_button(label="🖼️ Download Customer Graph as PNG", data=buf, file_name="customer_review_graph.png", mime="image/png")
+
+# -------------------------
+# 8. Validation of Injected Rings
+# -------------------------
+validation_df = validate_detected_rings(rings, suspicious_rings)
+st.subheader("✅ Detection Validation Report")
+st.markdown("Compare injected rings vs detected ones:")
+
+highlight_color_map = {
+    "✅ Exact Match": "background-color: #d4edda",
+    "🟡 Partial (Subset)": "background-color: #fff3cd",
+    "🟠 Partial (Superset)": "background-color: #ffeeba",
+    "❌ Missed": "background-color: #f8d7da"
+}
+
+def highlight_detection_status(row):
+    return [highlight_color_map.get(row["Detection Status"], "")] * len(row)
+
+st.dataframe(validation_df.style.apply(highlight_detection_status, axis=1))
+
+
