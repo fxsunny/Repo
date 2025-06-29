@@ -638,7 +638,8 @@ class JupyterUI:
         """Sets up the minimum shared products slider with callback"""
         self.min_shared_slider.observe(callback, names='value')
         display(self.min_shared_slider)
-        
+
+
     def render_ring_details(
         self,
         ring: Dict,
@@ -651,6 +652,8 @@ class JupyterUI:
     ) -> None:
         with self.output:
             clear_output(wait=True)
+    
+            # Ring summary block
             display(widgets.HTML(
                 f"<h3>🔸 Ring {index} — Suspicion Score: {ring['suspicion_score']} / 100</h3>"
                 f"<p><b>Customers:</b> {', '.join(ring['customers'])}</p>"
@@ -658,10 +661,10 @@ class JupyterUI:
                 f"<p><b>Sellers:</b> {', '.join(ring['sellers'])}</p>"
                 f"<p><b>Brands:</b> {', '.join(ring['brands'])}</p>"
             ))
-
-            # Suspicion Score Explainability
-            if "suspicion_breakdown" in ring:
-                breakdown = ring["suspicion_breakdown"]
+    
+            # Suspicion Score Breakdown (only if present and valid)
+            breakdown = ring.get("suspicion_breakdown", {})
+            if isinstance(breakdown, dict) and all(k in breakdown for k in ["group_score", "product_score", "seller_score", "brand_score"]):
                 explain_html = f"""
                 <h4>📊 Suspicion Score Breakdown</h4>
                 <ul>
@@ -673,11 +676,13 @@ class JupyterUI:
                 </ul>
                 """
                 display(widgets.HTML(explain_html))
-            
-            # Explainability
+            else:
+                display(widgets.HTML("<p><i>Suspicion breakdown not available for this ring.</i></p>"))
+    
+            # Natural language explanation
             explanation = self._generate_explanation(ring)
             display(widgets.HTML(f"<p>{explanation}</p>"))
-            
+    
             # Visualization
             subgraph = G_proj.subgraph(ring['customers'])
             fig = self.visualizer.plot_ring_subgraph(
@@ -689,6 +694,7 @@ class JupyterUI:
                 brand_color_map
             )
             display(fig)
+
             
     def render_validation_results(self, validation_df: pd.DataFrame) -> None:
         with self.output:
