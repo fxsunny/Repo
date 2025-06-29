@@ -273,106 +273,70 @@ class GraphBuilder:
 
 
 class RingDetector:
-    """Handles review ring detection and scoring with explainability"""
-
+    """Handles review ring detection and scoring"""
+    
     def __init__(self, data: Dict):
         self.data = data
         self.products = data["products"]
         self.brands = data["brands"]
         self.reviews = data["reviews"]
-
-    def detect_rings(self, G_proj: nx.Graph, customer_product: Dict) -> List[Dict]:
+        
+    def detect_rings(self, G_proj: nx.Graph, customer_product: Dict) -> Tuple[List[Dict], Dict]:
         detected_rings_raw = list(nx.connected_components(G_proj))
         suspicious_rings = []
-
+        
         rating_lookup = {
-            (r["customer"], r["product"]): r["rating"]
+            (r["customer"], r["product"]): r["rating"] 
             for r in self.reviews
         }
-
+        
         for ring in detected_rings_raw:
             ring_data = self._analyze_ring(ring, customer_product)
             suspicious_rings.append(ring_data)
-
+            
         suspicious_rings.sort(key=lambda r: r["suspicion_score"], reverse=True)
         return suspicious_rings, rating_lookup
-
+    
     def _analyze_ring(self, ring: set, customer_product: Dict) -> Dict:
         ring_customers = list(ring)
         reviewed_products = set()
 
         for cust in ring_customers:
-            reviewed_products |= customer_product.get(cust, set())
+            reviewed_products |= customer_product[cust]
 
         involved_sellers = {
-            self.products[p]["seller"]
-            for p in reviewed_products
+            self.products[p]["seller"] 
+            for p in reviewed_products 
             if p in self.products
         }
 
-        involved_brand_ids = {
-            self.products[p]["brand"]
-            for p in reviewed_products
+        involved_brands = {
+            self.products[p]["brand"] 
+            for p in reviewed_products 
             if p in self.products
         }
 
-        involved_brands = [self.brands[b] for b in involved_brand_ids]
+        # Suspicion score components
+        seller_score = 30 * (1 if len(involved_sellers) == 1 else 0.5 if len(involved_sellers) == 2 else 0)
+        brand_score = 30 * (1 if len(involved_brands) == 1 else 0.5 if len(involved_brands) == 2 else 0)
+        product_score = 20 * min(len(reviewed_products) / 5, 1)
+        group_score = 20 * min(len(ring_customers) / 5, 1)
 
-        # Calculate score and explanation
-        score, breakdown_lines = self._calculate_suspicion_score_explained(
-            len(ring_customers),
-            len(reviewed_products),
-            len(involved_sellers),
-            len(involved_brand_ids)
-        )
+        total_score = seller_score + brand_score + product_score + group_score
 
         return {
             "customers": ring_customers,
             "shared_products": list(reviewed_products),
             "sellers": list(involved_sellers),
-            "brands": involved_brands,
-            "suspicion_score": round(score, 1),
-            "suspicion_breakdown": "\n".join(breakdown_lines)
+            "brands": [self.brands[b] for b in involved_brands],
+            "suspicion_score": round(total_score, 1),
+            "suspicion_breakdown": {
+                "group_score": round(group_score, 1),
+                "product_score": round(product_score, 1),
+                "seller_score": round(seller_score, 1),
+                "brand_score": round(brand_score, 1)
+            }
         }
-
-    def _calculate_suspicion_score_explained(
-        self, n_customers: int, n_products: int, 
-        n_sellers: int, n_brands: int
-    ) -> Tuple[float, List[str]]:
-        breakdown = []
-        score = 0
-
-        # Seller-based score
-        if n_sellers == 1:
-            score += 30
-            breakdown.append("🛒 Seller overlap: 1 seller → +30")
-        elif n_sellers == 2:
-            score += 15
-            breakdown.append("🛒 Seller overlap: 2 sellers → +15")
-        else:
-            breakdown.append(f"🛒 Seller overlap: {n_sellers} sellers → +0")
-
-        # Brand-based score
-        if n_brands == 1:
-            score += 30
-            breakdown.append("🏷️ Brand overlap: 1 brand → +30")
-        elif n_brands == 2:
-            score += 15
-            breakdown.append("🏷️ Brand overlap: 2 brands → +15")
-        else:
-            breakdown.append(f"🏷️ Brand overlap: {n_brands} brands → +0")
-
-        # Product diversity score
-        prod_score = 20 * min(n_products / 5, 1)
-        score += prod_score
-        breakdown.append(f"📦 Shared products: {n_products} → +{round(prod_score,1)}")
-
-        # Group size score
-        group_score = 20 * min(n_customers / 5, 1)
-        score += group_score
-        breakdown.append(f"👥 Group size: {n_customers} → +{round(group_score,1)}")
-
-        return score, breakdown
 
 
 class GraphVisualizer:
