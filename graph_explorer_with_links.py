@@ -839,39 +839,64 @@ class JupyterRingDetectionApp:
 
 class ValidationManager:
     """Handles validation of detected rings against injected rings"""
-    
+
     @staticmethod
     def validate_detected_rings(
-        injected_rings: List[Tuple], 
+        injected_rings: List[Tuple],
         detected_rings: List[Dict]
     ) -> pd.DataFrame:
+        """
+        Compares injected review rings with detected ones using Jaccard similarity and 
+        match type classification. Returns a DataFrame summarizing the validation.
+    
+        Args:
+            injected_rings (List[Tuple]): List of injected ring tuples (customers, products).
+            detected_rings (List[Dict]): List of detected ring dictionaries with 'customers'.
+    
+        Returns:
+            pd.DataFrame: Validation summary with match types and similarity scores.
+        """
         injected_sets = [set(custs) for custs, _ in injected_rings]
         detected_sets = [set(ring["customers"]) for ring in detected_rings]
         results = []
-        
+    
         for idx, inj in enumerate(injected_sets, 1):
             match_type = "❌ Missed"
-            
-            for det in detected_sets:
-                if inj == det:
-                    match_type = "✅ Exact Match"
-                    break
-                elif inj.issubset(det):
-                    match_type = "🟡 Partial (Subset)"
-                    break
-                elif inj.issuperset(det):
-                    match_type = "🟠 Partial (Superset)"
-                    break
-                    
+            best_match = None
+            best_score = 0
+            best_overlap = set()
+    
+            for j, det in enumerate(detected_sets, 1):
+                intersection = inj.intersection(det)
+                union = inj.union(det)
+                jaccard = len(intersection) / len(union) if union else 0
+    
+                if jaccard > best_score:
+                    best_score = jaccard
+                    best_match = j
+                    best_overlap = det
+    
+            if best_score == 1:
+                match_type = "✅ Exact Match"
+            elif best_score > 0.7:
+                match_type = "🟠 Partial (Superset)" if inj.issubset(best_overlap) else "🟡 Partial (Subset)"
+            elif best_score > 0:
+                match_type = "🟡 Partial (Subset)"
+            else:
+                match_type = "❌ Missed"
+    
             results.append({
                 "Injected Ring ID": idx,
                 "Customers": ", ".join(sorted(injected_rings[idx - 1][0])),
                 "Products": ", ".join(sorted(injected_rings[idx - 1][1])),
+                "Best Detected Ring": best_match if best_match else "-",
+                "Injected Size": len(inj),
+                "Detected Size": len(best_overlap) if best_overlap else "-",
+                "Jaccard Similarity": round(best_score, 2),
                 "Detection Status": match_type
             })
-            
+    
         return pd.DataFrame(results)
-
 
 
 # Environment detection and main execution
