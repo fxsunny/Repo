@@ -652,7 +652,17 @@ class JupyterUI:
         with self.output:
             display(widgets.HTML("<h2>✅ Detection Validation Report</h2>"))
             display(validation_df.style.apply(self._highlight_detection_status, axis=1))
-            
+
+    def render_explainability_expanders(self, validation_df: pd.DataFrame):
+        st.markdown("### 🔍 Detailed Explainability for Each Injected Ring")
+        for i, row in validation_df.iterrows():
+            with st.expander(f"Ring {row['Injected Ring ID']} Details"):
+                st.markdown(f"""
+                **Detection Status**: {row['Detection Status']}  
+                **Expected vs Detected**:  
+                `{row['Expected vs Detected']}`  
+                """)
+
     def _highlight_detection_status(self, row):
         highlight_color_map = {
             "✅ Exact Match": "background-color: #d4edda",
@@ -767,6 +777,8 @@ class ReviewRingDetectionApp:
                 suspicious_rings
             )
             self.ui.render_validation_results(validation_df)
+            self.ui.render_explainability_expanders(validation_df)
+
 
 class JupyterRingDetectionApp:
     """Main application class for Jupyter implementation"""
@@ -835,7 +847,7 @@ class JupyterRingDetectionApp:
                 suspicious_rings
             )
             self.ui.render_validation_results(validation_df)
-
+            self.ui.render_explainability_expanders(validation_df)
 
 class ValidationManager:
     """Handles validation of detected rings against injected rings"""
@@ -846,15 +858,14 @@ class ValidationManager:
         detected_rings: List[Dict]
     ) -> pd.DataFrame:
         """
-        Compares injected review rings with detected ones using Jaccard similarity and 
-        match type classification. Returns a DataFrame summarizing the validation.
+        Compare injected (ground-truth) review rings against detected rings and report match quality.
     
         Args:
-            injected_rings (List[Tuple]): List of injected ring tuples (customers, products).
-            detected_rings (List[Dict]): List of detected ring dictionaries with 'customers'.
+            injected_rings (List[Tuple]): List of tuples, each containing (customers, products) in a ring.
+            detected_rings (List[Dict]): List of detected rings, each as a dictionary with 'customers' key.
     
         Returns:
-            pd.DataFrame: Validation summary with match types and similarity scores.
+            pd.DataFrame: Validation report containing match status, ring details, similarity, and explainability.
         """
         injected_sets = [set(custs) for custs, _ in injected_rings]
         detected_sets = [set(ring["customers"]) for ring in detected_rings]
@@ -862,38 +873,36 @@ class ValidationManager:
     
         for idx, inj in enumerate(injected_sets, 1):
             match_type = "❌ Missed"
-            best_match = None
-            best_score = 0
-            best_overlap = set()
+            best_match = set()
+            best_similarity = 0.0
     
-            for j, det in enumerate(detected_sets, 1):
-                intersection = inj.intersection(det)
-                union = inj.union(det)
-                jaccard = len(intersection) / len(union) if union else 0
+            for det in detected_sets:
+                jaccard = len(inj & det) / len(inj | det) if inj | det else 0.0
+                if jaccard > best_similarity:
+                    best_similarity = jaccard
+                    best_match = det
     
-                if jaccard > best_score:
-                    best_score = jaccard
-                    best_match = j
-                    best_overlap = det
-    
-            if best_score == 1:
-                match_type = "✅ Exact Match"
-            elif best_score > 0.7:
-                match_type = "🟠 Partial (Superset)" if inj.issubset(best_overlap) else "🟡 Partial (Subset)"
-            elif best_score > 0:
-                match_type = "🟡 Partial (Subset)"
-            else:
-                match_type = "❌ Missed"
+                if inj == det:
+                    match_type = "✅ Exact Match"
+                    best_match = det
+                    break
+                elif inj.issubset(det):
+                    match_type = "🟡 Partial (Subset)"
+                    break
+                elif inj.issuperset(det):
+                    match_type = "🟠 Partial (Superset)"
+                    break
     
             results.append({
                 "Injected Ring ID": idx,
                 "Customers": ", ".join(sorted(injected_rings[idx - 1][0])),
                 "Products": ", ".join(sorted(injected_rings[idx - 1][1])),
-                "Best Detected Ring": best_match if best_match else "-",
-                "Injected Size": len(inj),
-                "Detected Size": len(best_overlap) if best_overlap else "-",
-                "Jaccard Similarity": round(best_score, 2),
-                "Detection Status": match_type
+                "Detection Status": match_type,
+                "Jaccard Similarity": round(best_similarity, 2),
+                "Expected vs Detected": (
+                    f"Expected: {sorted(inj)} | Best Match: {sorted(best_match)}"
+                    if best_match else "No match found"
+                )
             })
     
         return pd.DataFrame(results)
