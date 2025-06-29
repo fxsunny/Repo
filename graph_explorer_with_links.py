@@ -712,7 +712,8 @@ class ReviewRingDetectionApp:
             options=list(range(2, 15)),
             index=1  # Now defaults to 3
         )
-
+        st.caption("Minimum number of shared products reviewed by two customers to be considered suspiciously connected.")
+        
         G_proj, customer_product = GraphBuilder.build_projection_graph(
             data["reviews"],
             min_shared
