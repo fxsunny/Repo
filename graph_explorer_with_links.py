@@ -443,7 +443,7 @@ class StreamlitUI:
         self.data_exporter = DataExporter()
         
     def render_header(self) -> None:
-        st.title("🛒 E-Commerce Abuse Graph: Multi-Entity Review Network")
+        st.title("RIA: Multi-Entity Review Network")
         st.markdown("This network graph includes customers, reviews, products, sellers, and brands.")
         
     def render_sidebar(self, data: Dict) -> None:
