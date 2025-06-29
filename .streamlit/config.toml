@@ -1,8 +1,0 @@
-[server]
-headless = true
-
-[browser]
-gatherUsageStats = false
-
-[app]
-mainPage = "Graph8Q.py"
