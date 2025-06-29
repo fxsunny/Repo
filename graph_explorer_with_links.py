@@ -708,10 +708,11 @@ class ReviewRingDetectionApp:
         st.pyplot(fig)
         
         # Ring detection
-        min_shared = st.slider(
-            "🔧 Minimum Shared Products for Strong Connection",
-            1, 5, 2
+        min_shared = st.selectbox("🔧 Minimum Shared Products for Strong Connection",
+            options=list(range(2, 15)),
+            index=1  # Now defaults to 3
         )
+
         G_proj, customer_product = GraphBuilder.build_projection_graph(
             data["reviews"],
             min_shared
