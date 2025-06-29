@@ -12,8 +12,151 @@ from IPython.display import display, clear_output
 from IPython import get_ipython
 
 
-
+#This dataloader injects stronger isolation betewen ring and non-ring entities (unique customers and products, but overlapping brands and sellers) 
 class DataLoader:
+    """Handles data loading and generation operations"""
+
+    @staticmethod
+    def generate_sample_data_with_rings(excel_file=None) -> Dict:
+        if excel_file:
+            return DataLoader._load_from_excel(excel_file)
+        return DataLoader._generate_synthetic_data()
+
+    @staticmethod
+    def _load_from_excel(excel_file) -> Dict:
+        xls = pd.ExcelFile(excel_file)
+        customers = xls.parse("Customers")["customer_id"].tolist()
+        sellers = xls.parse("Sellers")["seller_id"].tolist()
+        brand_df = xls.parse("Brands")
+        brands = dict(zip(brand_df["brand_id"], brand_df["brand_name"]))
+        prod_df = xls.parse("Products")
+        products = {
+            row["product_id"]: {"brand": row["brand"], "seller": row["seller"]}
+            for _, row in prod_df.iterrows()
+        }
+        rev_df = xls.parse("Reviews")
+        reviews = rev_df.to_dict("records")
+
+        rings = []
+        if "InjectedRings" in xls.sheet_names:
+            ring_df = xls.parse("InjectedRings")
+            for ring_id, group in ring_df.groupby("ring_id"):
+                customers_in_ring = group["customer_id"].unique().tolist()
+                products_in_ring = group["product_id"].unique().tolist()
+                rings.append((customers_in_ring, products_in_ring))
+
+        return {
+            "customers": customers,
+            "sellers": sellers,
+            "brands": brands,
+            "products": products,
+            "reviews": reviews,
+            "rings": rings,
+            "source": excel_file
+        }
+
+    @staticmethod
+    def _generate_synthetic_data() -> Dict:
+        random.seed(42)
+        num_customers = 50
+        num_brands = 5
+        num_sellers = 4
+        num_products_per_brand = 8
+        num_random_reviews = 250
+        ring_configs = [(5, 3), (4, 4), (6, 5), (3, 2), (7, 3)]
+
+        customers = [f"C{str(i).zfill(3)}" for i in range(1, num_customers + 1)]
+        brands = {f"B{str(i).zfill(2)}": f"Brand{i}" for i in range(1, num_brands + 1)}
+        sellers = [f"S{str(i).zfill(2)}" for i in range(1, num_sellers + 1)]
+
+        # Generate products
+        products = {}
+        for b in brands:
+            for i in range(1, num_products_per_brand + 1):
+                pid = f"{b}P{str(i).zfill(3)}"
+                products[pid] = {"brand": b, "seller": random.choice(sellers)}
+
+        # Prepare pools
+        available_customers = customers.copy()
+        available_products = list(products.keys())
+        reviews = []
+        review_id = 1
+        ring_segments = []
+
+        # Inject rings with unique customers + products
+        for ring_size, shared_count in ring_configs:
+            ring_custs = random.sample(available_customers, ring_size)
+            for c in ring_custs:
+                available_customers.remove(c)
+
+            ring_prods = random.sample(available_products, shared_count)
+            for p in ring_prods:
+                available_products.remove(p)
+
+            for cust in ring_custs:
+                for prod in ring_prods:
+                    reviews.append({
+                        "review_id": f"R{str(review_id).zfill(4)}",
+                        "customer": cust,
+                        "product": prod,
+                        "rating": random.randint(4, 5)
+                    })
+                    review_id += 1
+
+            ring_segments.append((ring_custs, ring_prods))
+
+        # Add remaining random reviews
+        remaining_customers = available_customers
+        remaining_products = available_products
+        all_customers = customers
+        all_products = list(products.keys())
+
+        for _ in range(num_random_reviews):
+            reviews.append({
+                "review_id": f"R{str(review_id).zfill(4)}",
+                "customer": random.choice(all_customers),
+                "product": random.choice(all_products),
+                "rating": random.randint(1, 5)
+            })
+            review_id += 1
+
+
+        # 👇 Summary message for print and Streamlit
+        summary = f"""
+        Synthetic Review Graph Generated:
+        - 💠 Customers: {len(customers)}
+        - 🏷️ Products: {len(products)}
+        - 🧾 Total Reviews: {len(reviews)}
+        - 🕸️ Injected Rings: {len(ring_segments)}
+        - 🔄 Ring Reviews Injected: {sum(len(c) * len(p) for c, p in ring_segments)}
+        """
+        
+        # Print to terminal for debugging/logging
+        print(summary)
+
+        # Show in Streamlit UI inside expander
+        try:
+            import streamlit as st
+            with st.expander("📋 Synthetic Data Generation Summary"):
+                st.markdown(summary)
+        except ImportError:
+            pass
+            
+        return {
+            "customers": customers,
+            "sellers": sellers,
+            "brands": brands,
+            "products": products,
+            "reviews": reviews,
+            "rings": ring_segments,
+            "source": "generated"
+        }
+
+
+
+
+#This version of the dataloader injects some level of isolation between ring and other non-ring entities 
+class DataLoaderV2:
     """Handles data loading and generation operations"""
     
     @staticmethod
