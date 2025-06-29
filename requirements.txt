@@ -8,3 +8,6 @@ scipy
 numpy
 typing
 Pillow
+xlsxwriter
+ipywidgets
+ipython
