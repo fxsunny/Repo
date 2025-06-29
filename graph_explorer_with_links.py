@@ -580,6 +580,16 @@ class StreamlitUI:
             mime="image/png"
         )
 
+    def render_explainability_expanders(self, validation_df: pd.DataFrame):
+        st.markdown("### 🔍 Detailed Explainability for Each Injected Ring")
+        for i, row in validation_df.iterrows():
+            with st.expander(f"Ring {row['Injected Ring ID']} Details"):
+                st.markdown(f"""
+                **Detection Status**: {row['Detection Status']}  
+                **Expected vs Detected**:  
+                `{row['Expected vs Detected']}`  
+                """)
+
 class JupyterUI:
     """Handles Jupyter Notebook UI components and layout"""
     
