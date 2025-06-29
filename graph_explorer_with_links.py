@@ -492,14 +492,32 @@ class StreamlitUI:
         # Suspicion Score Explainability
         if "suspicion_breakdown" in ring:
             with st.expander("ℹ️ Suspicion Score Explanation"):
-                st.markdown("**Suspicion Score Breakdown:**")
-                breakdown = ring["suspicion_breakdown"]
+                #st.markdown("**Suspicion Score Breakdown:**")
+                #breakdown = ring["suspicion_breakdown"]
+                #st.markdown(f"""
+                #- 👥 **Group Size Score**: {breakdown['group_score']}  
+                #- 📦 **Shared Products Score**: {breakdown['product_score']}  
+                #- 🏪 **Seller Uniformity Score**: {breakdown['seller_score']}  
+                #- 🏷️ **Brand Uniformity Score**: {breakdown['brand_score']}  
+                #- 📊 **Total Suspicion Score**: {ring['suspicion_score']} / 100  
+                #""")
+                st.markdown("**📊 Suspicion Score Breakdown:**")
+                breakdown = ring.get("suspicion_breakdown", {})
                 st.markdown(f"""
-                - 👥 **Group Size Score**: {breakdown['group_score']}  
-                - 📦 **Shared Products Score**: {breakdown['product_score']}  
-                - 🏪 **Seller Uniformity Score**: {breakdown['seller_score']}  
-                - 🏷️ **Brand Uniformity Score**: {breakdown['brand_score']}  
-                - 📊 **Total Suspicion Score**: {ring['suspicion_score']} / 100  
+                - 👥 **Group Size Score**: {breakdown['group_score']}
+                - 📦 **Shared Products Score**: {breakdown['product_score']}
+                - 🏪 **Seller Uniformity Score**: {breakdown['seller_score']}
+                - 🏷️ **Brand Uniformity Score**: {breakdown['brand_score']}
+                - 🧮 **Total Suspicion Score**: {ring['suspicion_score']} / 100
+                """)
+                # Friendly caption for what each score means
+                st.caption("""
+                **What these mean:**  
+                - 👥 *Group Size Score* rewards rings with more customers.  
+                - 📦 *Shared Products Score* reflects how many products were reviewed in common.  
+                - 🏪 *Seller Uniformity Score* is highest when all reviews are for 1 or 2 sellers.  
+                - 🏷️ *Brand Uniformity Score* is highest when all reviews target 1 or 2 brands.  
+                - The **total score** helps prioritize rings most likely to reflect coordinated behavior.
                 """)
 
         # Explainability
