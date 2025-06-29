@@ -12,7 +12,122 @@ from IPython.display import display, clear_output
 from IPython import get_ipython
 
 
+
 class DataLoader:
+    """Handles data loading and generation operations"""
+    
+    @staticmethod
+    def generate_sample_data_with_rings(excel_file=None) -> Dict:
+        if excel_file:
+            return DataLoader._load_from_excel(excel_file)
+        return DataLoader._generate_synthetic_data()
+    
+    @staticmethod
+    def _load_from_excel(excel_file) -> Dict:
+        xls = pd.ExcelFile(excel_file)
+        customers = xls.parse("Customers")["customer_id"].tolist()
+        sellers = xls.parse("Sellers")["seller_id"].tolist()
+        brand_df = xls.parse("Brands")
+        brands = dict(zip(brand_df["brand_id"], brand_df["brand_name"]))
+        prod_df = xls.parse("Products")
+        products = {
+            row["product_id"]: {"brand": row["brand"], "seller": row["seller"]}
+            for _, row in prod_df.iterrows()
+        }
+        rev_df = xls.parse("Reviews")
+        reviews = rev_df.to_dict("records")
+        
+        rings = []
+        if "InjectedRings" in xls.sheet_names:
+            ring_df = xls.parse("InjectedRings")
+            for ring_id, group in ring_df.groupby("ring_id"):
+                customers_in_ring = group["customer_id"].unique().tolist()
+                products_in_ring = group["product_id"].unique().tolist()
+                rings.append((customers_in_ring, products_in_ring))
+        
+        return {
+            "customers": customers,
+            "sellers": sellers,
+            "brands": brands,
+            "products": products,
+            "reviews": reviews,
+            "rings": rings,
+            "source": excel_file
+        }
+
+    @staticmethod
+    def _generate_synthetic_data() -> Dict:
+        random.seed(42)
+        num_customers = 50
+        num_brands = 5
+        num_sellers = 4
+        num_products_per_brand = 8
+        num_random_reviews = 250
+        ring_configs = [(5, 3), (4, 4), (6, 5), (3, 2), (7, 3)]
+
+        customers = [f"C{str(i).zfill(3)}" for i in range(1, num_customers + 1)]
+        brands = {f"B{str(i).zfill(2)}": f"Brand{i}" for i in range(1, num_brands + 1)}
+        sellers = [f"S{str(i).zfill(2)}" for i in range(1, num_sellers + 1)]
+
+        # Generate products
+        products = {}
+        for b in brands:
+            for i in range(1, num_products_per_brand + 1):
+                pid = f"{b}P{str(i).zfill(3)}"
+                products[pid] = {"brand": b, "seller": random.choice(sellers)}
+
+        # Generate random reviews
+        reviews = []
+        review_id = 1
+        for _ in range(num_random_reviews):
+            reviews.append({
+                "review_id": f"R{str(review_id).zfill(3)}",
+                "customer": random.choice(customers),
+                "product": random.choice(list(products.keys())),
+                "rating": random.randint(1, 5)
+            })
+            review_id += 1
+
+        # Inject review rings with strong isolation
+        ring_customers = customers[:sum(c for c, _ in ring_configs)]
+        ring_segments = []
+
+        product_keys = list(products.keys())
+        random.shuffle(product_keys)
+        product_pools = [product_keys[i:i + 5] for i in range(0, len(product_keys), 5)]
+
+        ring_index = 0
+        for i, (ring_size, shared_count) in enumerate(ring_configs):
+            ring_custs = ring_customers[ring_index: ring_index + ring_size]
+            ring_index += ring_size
+
+            product_pool = product_pools[i % len(product_pools)]
+            ring_prods = random.sample(product_pool, min(shared_count, len(product_pool)))
+
+            for cust in ring_custs:
+                for prod in ring_prods:
+                    reviews.append({
+                        "review_id": f"R{str(review_id).zfill(3)}",
+                        "customer": cust,
+                        "product": prod,
+                        "rating": random.randint(4, 5)
+                    })
+                    review_id += 1
+
+            ring_segments.append((ring_custs, ring_prods))
+
+        return {
+            "customers": customers,
+            "sellers": sellers,
+            "brands": brands,
+            "products": products,
+            "reviews": reviews,
+            "rings": ring_segments,
+            "source": "generated"
+        }
+
+
+class DataLoader_V1:
     """Handles data loading and generation operations"""
     
     @staticmethod
@@ -150,6 +265,9 @@ class DataLoader:
             "rings": ring_segments,
             "source": "generated"
         }
+
+
+
 
 
 class DataExporter:
