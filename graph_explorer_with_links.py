@@ -6,7 +6,7 @@ import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
 import io
 import random
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Callable
 import ipywidgets as widgets
 from IPython.display import display, clear_output
 from IPython import get_ipython
