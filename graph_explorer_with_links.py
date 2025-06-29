@@ -586,9 +586,16 @@ class StreamlitUI:
             with st.expander(f"Ring {row['Injected Ring ID']} Details"):
                 st.markdown(f"""
                 **Detection Status**: {row['Detection Status']}  
+                **Jaccard Similarity**: {row['Jaccard Similarity']}  
                 **Expected vs Detected**:  
                 `{row['Expected vs Detected']}`  
+                
+                **Commentary**:  
+                {row['Commentary']}
                 """)
+
+
+
 
 class JupyterUI:
     """Handles Jupyter Notebook UI components and layout"""
@@ -664,15 +671,19 @@ class JupyterUI:
             display(validation_df.style.apply(self._highlight_detection_status, axis=1))
 
     def render_explainability_expanders(self, validation_df: pd.DataFrame):
-        st.markdown("### 🔍 Detailed Explainability for Each Injected Ring")
+        display(widgets.HTML("<h2>🔍 Detailed Explainability for Each Injected Ring</h2>"))
         for i, row in validation_df.iterrows():
-            with st.expander(f"Ring {row['Injected Ring ID']} Details"):
-                st.markdown(f"""
-                **Detection Status**: {row['Detection Status']}  
-                **Expected vs Detected**:  
-                `{row['Expected vs Detected']}`  
-                """)
-
+            expander = widgets.Accordion(children=[widgets.Output()])
+            expander.set_title(0, f"Ring {row['Injected Ring ID']} Details")
+            with expander.children[0]:
+                display(widgets.HTML(f"""
+                    <b>Detection Status</b>: {row['Detection Status']}<br>
+                    <b>Jaccard Similarity</b>: {row['Jaccard Similarity']}<br>
+                    <b>Expected vs Detected</b>: <code>{row['Expected vs Detected']}</code><br>
+                    <b>Commentary</b>: {row['Commentary']}
+                """))
+            display(expander)
+    
     def _highlight_detection_status(self, row):
         highlight_color_map = {
             "✅ Exact Match": "background-color: #d4edda",
@@ -864,19 +875,9 @@ class ValidationManager:
 
     @staticmethod
     def validate_detected_rings(
-        injected_rings: List[Tuple],
+        injected_rings: List[Tuple], 
         detected_rings: List[Dict]
     ) -> pd.DataFrame:
-        """
-        Compare injected (ground-truth) review rings against detected rings and report match quality.
-    
-        Args:
-            injected_rings (List[Tuple]): List of tuples, each containing (customers, products) in a ring.
-            detected_rings (List[Dict]): List of detected rings, each as a dictionary with 'customers' key.
-    
-        Returns:
-            pd.DataFrame: Validation report containing match status, ring details, similarity, and explainability.
-        """
         injected_sets = [set(custs) for custs, _ in injected_rings]
         detected_sets = [set(ring["customers"]) for ring in detected_rings]
         results = []
@@ -884,35 +885,58 @@ class ValidationManager:
         for idx, inj in enumerate(injected_sets, 1):
             match_type = "❌ Missed"
             best_match = set()
-            best_similarity = 0.0
+            commentary = "No overlap with any detected ring."
+            jaccard = 0.0
     
             for det in detected_sets:
-                jaccard = len(inj & det) / len(inj | det) if inj | det else 0.0
-                if jaccard > best_similarity:
-                    best_similarity = jaccard
-                    best_match = det
+                intersection = inj & det
+                union = inj | det
+                similarity = len(intersection) / len(union) if union else 0
     
                 if inj == det:
                     match_type = "✅ Exact Match"
                     best_match = det
+                    jaccard = similarity
+                    commentary = "All injected customers detected with no extras."
                     break
                 elif inj.issubset(det):
                     match_type = "🟡 Partial (Subset)"
+                    best_match = det
+                    jaccard = similarity
+                    commentary = (
+                        "Matched customers include all injected customers, "
+                        "but also many additional ones."
+                    )
                     break
                 elif inj.issuperset(det):
                     match_type = "🟠 Partial (Superset)"
+                    best_match = det
+                    jaccard = similarity
+                    commentary = (
+                        "Detected customers are a subset of injected ring; "
+                        "some injected customers were missed."
+                    )
                     break
+                elif intersection:
+                    if similarity > jaccard:
+                        match_type = "🟠 Partial (Overlap)"
+                        best_match = det
+                        jaccard = similarity
+                        commentary = (
+                            f"Overlap detected: {len(intersection)} of {len(inj)} injected customers matched."
+                        )
     
             results.append({
                 "Injected Ring ID": idx,
                 "Customers": ", ".join(sorted(injected_rings[idx - 1][0])),
                 "Products": ", ".join(sorted(injected_rings[idx - 1][1])),
                 "Detection Status": match_type,
-                "Jaccard Similarity": round(best_similarity, 2),
+                "Jaccard Similarity": round(jaccard, 2),
                 "Expected vs Detected": (
                     f"Expected: {sorted(inj)} | Best Match: {sorted(best_match)}"
                     if best_match else "No match found"
-                )
+                ),
+                "Commentary": commentary
             })
     
         return pd.DataFrame(results)
